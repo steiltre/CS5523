@@ -1,0 +1,15 @@
+# Ignore pdf's
+*.pdf
+
+# Ignore random LaTex files
+*.aux
+*.log
+*.dvi
+*.out
+
+# Ignore binaries
+written1/code/dgt_compare
+
+
+# Ignore solutions from gk
+project1/gk_sol

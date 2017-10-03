@@ -1,0 +1,253 @@
+%        File: hw1.tex
+%     Created: Thu Sep 21 07:00 PM 2017 C
+% Last Change: Thu Sep 21 07:00 PM 2017 C
+%
+
+\documentclass[11pt]{article}
+
+\title{CSci 5523 Homework 1 }
+\date{10/2/17}
+\author{Trevor Steil}
+
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage[margin=1.0in]{geometry}
+\usepackage{esint}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{bbm}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem*{claim}{Claim}
+%\newtheorem*{problem}{Problem}
+%\newtheorem*{lemma}{Lemma}
+\newtheorem{definition}{Definition}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\supp}[1]{\mathop{\mathrm{supp}}\left(#1\right)}
+\newcommand{\lip}[1]{\mathop{\mathrm{Lip}}\left(#1\right)}
+\newcommand{\curl}{\mathrm{curl}}
+\newcommand{\la}{\left \langle}
+\newcommand{\ra}{\right \rangle}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\renewcommand{\div}{\mathrm{div}}
+
+\newenvironment{problem}{\textbf{Problem.}}
+
+\newenvironment{solution}[1][]{\emph{Solution #1}}
+
+\algnewcommand{\Or}{\textbf{ or }}
+\algnewcommand{\And}{\textbf{ or }}
+
+% Indent paragraphs and remove spacing between paragraphs in itemize and enumerate environments
+\setlist{ listparindent=\parindent, parsep=0pt,}
+
+
+\begin{document}
+\maketitle
+
+\begin{enumerate}
+  \item
+  \begin{problem}
+    Suppose that you had a set of arbitrary objects of different types representing different characteristics of widgets. A domain expert gave you the
+    similarity value between every pair of objects. How would you convert these objects into a multidimensional data set for clustering?
+  \end{problem}
+
+  \begin{solution}
+    With the similarity for each pair of objects given, a dense similarity graph can be constructed. This involves creating a matrix where each object
+    is given a row and a column. The entry in position $(i,j)$ would correspond to the similarity between object $i$ and object $j$.
+
+    Typically, storing a dense matrix such as this is undesired. There are several ways to make this dataset sparse. A very simple way would be by
+    randomly sampling edges. This approach would not seek to maintain any structure during the sparsification.
+
+    Another method of sparsification would be to use $k$-nearest neighbors. This approach would be much more computationally intense than sampling,
+    but would only maintain edges between objects with a high degree of similarity. This property would be desired for performing clustering.
+
+    Charu Aggarwal gives another method of creating a multidimensional dataset for clustering. Following sparsification (i.e. with $k$-nearest neighbors), spectral
+    methods can be used to transform the data set. This process involves solving the eigenvalue problem
+    \begin{equation*}
+      \Lambda^{-1} L y = \lambda y
+    \end{equation*}
+    where $\Lambda$ is a diagonal matrix with entries containing the row-sums of $W$ and $L = \Lambda - W$. By the construction of $L$, $\lambda = 0$
+    is the smallest eigenvalue, corresponding to the eigenvector of all 1's. The eigenvector corresponding to the second smallest eigenvalue is an
+    $n$-dimensional vector. Each of entries of the eigenvector gives a coordinate for one of the $n$ objects being considered. By taking eigenvectors
+    corresponding to the $l$ smallest eigenvalues, we get an $l$-dimensional representation of the similarity between objects which can be used for
+    clustering.
+
+    In the above methods, there are a couple of places that a choice needs to be made. First, when sparsifying the similarity graph by maintaining the
+    $k$ most similar objects for any given object, the value for $k$ needs to be determined. Then while reducing the dimensionality using spectral
+    methods, the number of eigenvectors, $l$, to use must be determined. Given the interpretability of the first decision in terms of similarities
+    between objects, the domain expert may be able to provide some guidance in the value to use for $k$.
+  \end{solution}
+
+  \item
+  \begin{problem}
+    Suppose that you had a data set, such that each data point corresponds to sea-surface temperatures over a square mile of resolution $10 \times 10$.
+    In other words, each data record contains a $10 \times 10$ grid of temperature values with spatial locations. You also have some text associated
+    with each $10 \times 10$ grid. How would you convert this data into a multidimensional data set?
+  \end{problem}
+
+  \begin{solution}
+    Each record contains spatial data and an associated text object. These pieces can be handled independently. In the simplest approach, the sea-surface
+    temperatures for a single record can be flattened into a $1 \times 100$ vector, and the text can be given a representation as a bag of words. These two pieces can be
+    concatenated to give each record in the dataset.
+
+    For a slightly more sophisticated method that results in a dataset of lower dimensionality, the sea-surface temperatures can be
+    turned into a set of coefficients by using a 2D-Wavelet Transform. The text can be made into numerical values using
+    a bag of words representation, and then the dimensionality of the bag of words can be reduced by using Latent Semantic Analysis, which essentially amounts
+    to an SVD on the word counts for the different annotations. There are a couple of choices that need to be made in this process. First, the number of Wavelet coefficients to store needs to be decided,
+    and also the particular coefficients to keep for individual records need to be determined. It may be the case that the same subset of Wavelet
+    coefficients captures the relevant information for all records. Otherwise, all coefficients can be stored for every record with insignificant
+    coefficients being replaced with zeroes. The second choice that needs to be made is the rank of the approximation to the text data when performing
+    the SVD decomposition.
+  \end{solution}
+
+  \item
+  \begin{problem}
+    Suppose that you had a set of discrete biological protein sequences that are annotated with text describing the properties of the protein. How
+    would you create a multidimensional representation from this heterogeneous data set?
+  \end{problem}
+
+  \begin{solution}
+    For a simple approach, we can concatenate a bag of words representation onto each sequence. This gives every record as a sequence of proteins,
+    represented as a sequence of categorical variables which take $k$ different values where $k$ is the number of amino acids,
+    followed by the bag of words.
+
+    We can also use more sophisticated methods to get a dataset with lower dimensionality, as discussed by Charu Aggarwal.
+    Each protein sequence can be converted into a set of binary time series with each binary time series corresponding to an individual protein. Then
+    a Wavelet transform can be performed on each time series to create a multidimensional representation for what started as an individual record.
+    The coefficients from the Wavelet transforms can be appended to each other to make the original sequence into a single record.
+
+    The words within the text describing each protein can be stored as word counts. Latent Semantic Analysis can then be used to reduce the
+    dimensionality of the descriptions.
+
+    In performing the Wavelet transforms, there may be a subset of the coefficients that captures the relevant information for all binary time series
+    that have been created. In this case, only that subset of Wavelet coefficients needs to be stored for each time series. Otherwise, all
+    coefficients for each time series will need to be stored with many of the coefficients being set equal to zero. Also, the number of dimensions to
+    reduce the text data to during Latent Semantic Analysis will need to be determined.
+  \end{solution}
+
+  \item
+  \begin{problem}
+    Consider the problem of dimensionality reduction in the context of an $n \times m$ image with grayscale values. The image can be represented as a
+    matrix $A$ that has $n$ rows and $m$ columns. If I compute a truncated SVD decomposition of this matrix in order to do dimensionality reduction,
+    which are the objects whose dimensionality I'm reducing and which ones are the original dimensions?
+  \end{problem}
+
+  \begin{solution}
+    SVD creates new attributes that are linear combinations of the original attributes. Storing an $n \times m$ image as an $n \times m$ matrix $A$
+    stores records that correspond to individual rows of pixels and dimensions that correspond to columns of pixels. This means the dimensionality of
+    the rows of pixels is reduced to be lower than the original $m$ dimensions.
+  \end{solution}
+
+  \pagebreak
+
+  \item
+  \begin{problem}
+    The following questions involve the ``test set'' described in \url{https://prjeddie.com/projects/mnist-in-csv}. Please download that dataset and
+    answer the following questions:
+    \begin{enumerate}
+      \item For each image in the test set (\textit{query} image) compute the closest other test image using the following approaches: Euclidean
+        distance, cosine similarity, extended Jaccard similarity. Report the number of times the closest image is the same digit as that of the query
+        image.
+
+      \item Use truncated SVD to perform a dimensionality reduction using 5, 10, 20, and 40 dimensions. Represent the records using both the $U$ and the
+        $U \Sigma$ matrices. For each of the above dimensions and low-dimensional representations, perform the study that you did in part (a). You can
+        use Matlab to compute the truncated SVD.
+
+      \item Each image in the above data set is $28 \times 28$. Create a $7 \times 7$ image by averaging the values of each $4 \times 4$ patch of the
+        image. Using this 49-dimensional representation perform the study that you did in part (a).
+    \end{enumerate}
+  \end{problem}
+
+  \begin{solution}
+    \begin{enumerate}
+      \item
+        Figure \ref{fig:original} gives the number of images with the same digit as the closest neighbor using our measures of similarity.
+        \begin{figure}[h]
+          \begin{tabular}{| r | r | r | r |}
+            \hline
+            \multicolumn{4}{|c|}{Closest Image Matches (Out of 10000 Images)} \\
+            \hline
+            Dataset & Euclidean Distance & Cosine Similarity & Extended Jaccard Similarity \\
+            \hline
+            Original Test Data & 9558 & 9614 & 9601 \\
+            \hline
+          \end{tabular}
+          \caption{Number of images in test set with same digit as most similar neighbor with different measures of similarity}
+          \label{fig:original}
+        \end{figure}
+
+      \item
+        In Figure \ref{fig:SVD}, we give the number of images whose digits matched that of the closest neighbor after performing an SVD. We use $U_k$
+        and $\Sigma_k$ to represent the first two matrices given by the truncated SVD of rank $k$, that is, $U_k$ is the first five columns of the $U$
+        given from the SVD, and $\Sigma_k$ is the upper-left $k \times k$ block of $\Sigma$ from the SVD.
+
+        For the images represented by $U_{40} \Sigma_{40}$,
+        we get slightly more matches than with the original data set. This is likely because the rank 40 approximation has captured all useful
+        variations and has reduced the noise present in the data. We also tend to see slightly better performance using $U_k \Sigma_k$ than using
+        $U_k$ alone. This is likely because using $U$ only rotates the space to pick out the directions with largest variance in the dataset. $\Sigma$
+        is the matrix that accounts for the scaling of the variances in these orthogonal directions.
+        \begin{figure}[h]
+          \begin{tabular}{| r | r | r | r |}
+            \hline
+            \multicolumn{4}{|c|}{Closest Image Matches (Out of 10000 Images)} \\
+            \hline
+            Dataset & Euclidean Distance & Cosine Similarity & Extended Jaccard Similarity \\
+            \hline
+            $U_5$ & 6799 & 6666 & 6813 \\
+            $U_5 \Sigma_5$ & 6848 & 6687 & 6846 \\
+            $U_{10}$ & 8853 & 8901 & 8939  \\
+            $U_{10} \Sigma_{10}$ & 8906 & 9022 & 8899 \\
+            $U_{20}$ & 9501 & 9531 & 9536 \\
+            $U_{20} \Sigma_{20}$ & 9562 & 9596 & 9556 \\
+            $U_{40}$ & 9507 & 9559 & 9562 \\
+            $U_{40} \Sigma_{40}$ & 9629 & 9690 & 9647 \\
+            \hline
+          \end{tabular}
+          \caption{Number of images in test set with same digit as most similar neighbor with different measures of similarity after low-rank
+          approximation}
+          \label{fig:SVD}
+        \end{figure}
+
+        \pagebreak
+
+      \item
+        In Figure \ref{fig:averaged_image}, we have the matches after images were averaged over $4 \times 4$ squares to lower the resolution on
+        images. This takes a $28 \times 48$ image and reduces it to a $7 \times 7$ image, reducing the dimensionality of each image from 784 to 49. As
+        expected, results are worse than for using SVD for higher rank approximations, as we are manually choosing a set of 49 dimensions to represent
+        our data.
+        \begin{figure}[h]
+          \begin{tabular}{| r | r | r | r |}
+            \hline
+            \multicolumn{4}{|c|}{Closest Image Matches (Out of 10000 Images)} \\
+            \hline
+            Dataset & Euclidean Distance & Cosine Similarity & Extended Jaccard Similarity \\
+            \hline
+            $4 \times 4$ Averaged Images & 9378 & 9439 & 9401 \\
+            \hline
+          \end{tabular}
+          \caption{Number of images averaged over $4 \times 4$ squares in test set with same digit as most similar neighbor with different measures of similarity}
+          \label{fig:averaged_image}
+        \end{figure}
+
+    \end{enumerate}
+  \end{solution}
+
+\end{enumerate}
+\end{document}
+
+
