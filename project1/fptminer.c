@@ -156,30 +156,33 @@ void fpt_delete_node(
     fpt_node * node)
 {
 
-  /* NEED TO FIND RIGHT LOGIC FOR REMOVAL OF NODES */
+  /* Do not need to change item pointers because algorithm removes all nodes with a given item, not individual nodes */
 
-  if (node->prev_sibling == NULL && node->next_sibling == NULL) {   /* Node has no siblings */
-    node->parent->child = node->child;
-    if (node->child != NULL) {
-      node->child->parent = node->parent;
-    }
-
-    fpt_node_free(node);
-    return;
-  }
-
-  if (node->prev_sibling != NULL) {
+  if (node->prev_sibling != NULL) {      /* Node has a previous sibling */
     node->prev_sibling->next_sibling = node->next_sibling;
   }
-  else {
+  else {          /* Node is first child of parent */
     node->parent->child = node->next_sibling;
   }
 
-  if (node->next_sibling != NULL) {
+  if (node->next_sibling != NULL) {      /* Node has a next sibling */
     node->next_sibling->prev_sibling = node->prev_sibling;
   }
-  else {
-    node->
+
+  /* Add node's children to parent's list of children */
+  fpt_node * current = node->child;
+
+  /* SHOULD BE ABLE TO WRITE THIS MORE CLEANLY!!!!!!!!!!! */
+  /* MAY BE FASTER IF TAIL OF CHILD LIST IS STORED!!!!!!!!!!!!! */
+  if (current != NULL) {    /* Node has children */
+    while (current->next_sibling != NULL) {
+      current = current->next_sibling;
+    }
+
+    /* Add children to beginning of parent's child list */
+    current->next_sibling = node->parent->child;
+    current->parent->child = node->child;
+  }
 
 }
 
@@ -204,6 +207,28 @@ void fpt_create_item_pointers(
     fpt_create_item_pointers(child);
     child = child->next_sibling;
   }
+}
+
+/*
+ * @brief Propagate counts from leaves up to root
+ *
+ * @param tree Pointer to root of FP tree
+ * @param item Index of item at leaves
+ */
+void fpt_propagate_counts_up(
+    fpt_node * tree,
+    unsigned long long item)
+{
+
+  for (unsigned long long i=item; i>0; i--) {
+    fpt_node * current = tree->item_array[i-1];
+
+    while(current != NULL) {
+      current->parent->count += current->count;
+      current = current->ngbr;     /* Move through item pointers */
+    }
+  }
+
 }
 
 /*
@@ -257,6 +282,97 @@ fpt_node * fpt_create_fp_tree(
   fpt_create_item_pointers(root);
 
   return root;
+
+}
+
+/*
+ * @brief Create tree of prefix paths on a given item
+ *
+ * @param tree Pointer to root of tree to build prefix paths from
+ * @param item Item prefix paths will be built on
+ *
+ * @return prefix_tree Pointer to root of tree of prefix paths
+ */
+fpt_node * fpt_create_prefix_tree(
+    fpt_node * tree,
+    unsigned long long item)
+{
+  fpt_node * prefix_tree = fpt_new_node();
+  prefix_tree->item_array = malloc(item * sizeof(*prefix_tree->item_array));
+  for (unsigned long long i=0; i<item; i++) {
+    prefix_tree->item_array[i] = NULL;
+  }
+
+  prefix_tree->root = prefix_tree;
+
+  /* Array of pointers to current node with each item. Will use to prevent copying nodes multiple times */
+  fpt_node ** current_nodes_orig = malloc(item * sizeof(*current_nodes_orig) );
+  /* Array of pointers to current node in prefix_tree */
+  fpt_node ** current_nodes_pref = malloc(item * sizeof(*current_nodes_pref) );
+  fpt_node * dummy_node;
+  for (unsigned long long i=0; i<item; i++) {
+    dummy_node = fpt_new_node();
+    dummy_node->ngbr = tree->item_array[i];
+    current_nodes_orig[i] = dummy_node;
+    current_nodes_pref[i] = NULL;
+  }
+  current_nodes_orig[item-1] = tree->item_array[item-1];
+
+  fpt_node * new_node;
+
+  /* Walk along list of desired item */
+  while( current_nodes_orig[item-1] != NULL ) {
+    /* Initialize new leaf node and add to tree */
+    new_node = fpt_new_node();
+    new_node->root = prefix_tree;
+    new_node->count = current_nodes_orig[item-1]->count;
+    new_node->item = item;
+
+    fpt_node * parent_orig = current_nodes_orig[item-1]->parent;
+    /* Walk up tree and add parents */
+    /* This process relies on the fact that the list of pointers is ordered across all items
+     * to ensure no node us duplicated multiple times. This is done by walking up paths from
+     * leaves to the root while checking item pointers to see if a node in the original tree
+     * has already been visited. */
+    while(parent_orig != tree->root) {
+      if(parent_orig != current_nodes_orig[parent_orig->item-1]) {    /* Node has not been seen in original tree */
+        new_node = fpt_add_parent_node(new_node, parent_orig->item);  /* Add new parent node */
+
+        current_nodes_pref[parent_orig->item-1] = new_node;
+
+        while(parent_orig != current_nodes_orig[parent_orig->item-1]) {   /* Walk along list until corresponding node in original tree has been found */
+          current_nodes_orig[parent_orig->item-1] = current_nodes_orig[parent_orig->item-1]->ngbr;
+        }
+      }
+      else {    /* Parent has already been seen in original */
+        /* Add new node to child list of parent */
+        new_node->next_sibling = current_nodes_pref[parent_orig->item-1]->child;
+        current_nodes_pref[parent_orig->item-1]->child->prev_sibling = new_node;
+        current_nodes_pref[parent_orig->item-1]->child = new_node;
+        new_node->parent = current_nodes_pref[parent_orig->item-1];
+
+        //break;    /* Once an old path is reached, move to next leaf */
+      }
+
+      parent_orig = parent_orig->parent;  /* Should use commented out "break" above to exit loop when old node is found, but this would add unwanted nodes as children of root */
+    }
+
+    /* Add top node as child of root */
+    new_node->parent = prefix_tree;
+    new_node->next_sibling = prefix_tree->child;
+    if(prefix_tree->child != NULL) {
+      prefix_tree->child->prev_sibling = new_node;
+    }
+    prefix_tree->child = new_node;
+
+    current_nodes_orig[item-1] = current_nodes_orig[item-1]->ngbr;  /* Move to next node with desired item */
+  }
+
+  fpt_create_item_pointers(prefix_tree);
+
+  fpt_propagate_counts_up(prefix_tree, item);
+
+  return prefix_tree;
 
 }
 
@@ -351,6 +467,8 @@ int main(
   fpt_csr * trans_csr = read_file(ifname);
 
   fpt_node * fp_tree = fpt_create_fp_tree(trans_csr);
+
+  fpt_node * prefix_tree = fpt_create_prefix_tree(fp_tree, 2);
 
   return EXIT_SUCCESS;
 }
