@@ -41,10 +41,13 @@ typedef struct fpt_node {
   struct fpt_node * root;
 
   /** ID of item stored at node */
-  unsigned long long item;
+  int item;
 
   /** Number of transactions containing pattern */
-  unsigned long long count;
+  int count;
+
+  /** The largest unique item ID */
+  int max_item_ID;
 } fpt_node;
 
 /*
@@ -53,24 +56,184 @@ typedef struct fpt_node {
 typedef struct
 {
   /** The number of transactions. */
-  unsigned long long int num_trans;
+  int num_trans;
   /** The number of total items in all transactions */
-  unsigned long long int total_items;
+  int total_items;
 
   /** Pointer to beginning of items in each transaction */
-  unsigned long long * trans_start;
+  int * trans_start;
 
   /** The items of each transaction */
-  unsigned long long * items;
+  int * items;
 
   /** The largest unique item ID */
-  unsigned long long max_item_ID;
+  int max_item_ID;
 } fpt_csr;
+
+/*
+ * @brief A pair of integers used to sort item indices based on frequency
+ */
+typedef struct
+{
+  /* Item frequency */
+  int  count;
+
+  /* Item ID */
+  int item;
+} fpt_item_freq;
 
 
 /*****************************************
  * Code
 *****************************************/
+
+/*
+ * @brief Comparison operator for sorting item IDs based on frequency
+ *
+ * @param a Pointer to first fpt_item_freq
+ * @param b Pointer to second fpt_item_freq
+ */
+int fpt_item_pair_comp(
+    const void *a,
+    const void *b)
+{
+  fpt_item_freq * a_freq = (fpt_item_freq *) a;
+  fpt_item_freq * b_freq = (fpt_item_freq *) b;
+
+  return (b_freq->count - a_freq->count);
+}
+
+/*
+ * @brief Standard comparison operator for ascending order with qsort
+ *
+ * @param a Pointer to first int
+ * @param b Pointer to second int
+ *
+ * return Value signifying order
+ */
+int fpt_lt(
+    const void *a,
+    const void *b)
+{
+  int * a_ptr = (int *) a;
+  int * b_ptr = (int *) b;
+
+  return *a_ptr - *b_ptr;
+}
+
+/*
+ * @brief Sort item IDs based on frequency
+ *
+ * @param counts Array holding counts of items
+ * @param max_item_ID Largest item ID
+ * @param forward_map Array to give indices of new item IDs
+ * @param backward_map Array to return new item IDs to old IDs
+ */
+void fpt_sort_item_IDs(
+    const int * counts,
+    const int max_item_ID,
+    int * forward_map,
+    int * backward_map)
+{
+
+  fpt_item_freq * item_pairs = malloc(max_item_ID * sizeof(*item_pairs));
+
+  for (int i=0; i<max_item_ID; i++) {
+    item_pairs[i].item = i+1;
+    item_pairs[i].count = counts[i];
+  }
+
+  qsort( item_pairs, max_item_ID, sizeof(*item_pairs), fpt_item_pair_comp );
+
+  /* Create maps between new and old item IDs */
+  for (int i=0; i<max_item_ID; i++) {
+    backward_map[i] = item_pairs[i].item;
+
+    int j = 0;
+    while (item_pairs[j].item != i+1) {
+      j += 1;
+    }
+    forward_map[i] = j+1;
+  }
+
+  free(item_pairs);
+
+}
+
+/*
+ * @brief Relabel item IDs and remove infrequent items
+ *
+ * @param trans_csr Matrix of transactions stored in csr format
+ * @param item_counts Array of counts for each item (in terms of old indices)
+ * @param forward_map Array allowing mapping of item IDs to new item IDs
+ * @param min_sup Minimum support count for frequent item
+ *
+ * @return relabeled_trans_csr Transactions with new item labels and infrequent items removed
+ */
+fpt_csr * fpt_relabel_item_IDs(
+    const fpt_csr * trans_csr,
+    const int * item_counts,
+    const int * forward_map,
+    const int min_sup)
+{
+
+  /* Determine number of unique frequent items */
+  int frequent_items = 0;
+  for (int i=0; i<trans_csr->max_item_ID; i++) {
+    if(item_counts[i] >= min_sup) {
+      frequent_items += 1;
+    }
+  }
+
+  /* Determine number of total frequent items */
+  int total_items = 0;
+  for (int i=0; i<trans_csr->total_items; i++) {
+    if(item_counts[trans_csr->items[i]-1] >= min_sup) {      /* Need to subtract 1 because items are 1-indexed */
+      total_items += 1;
+    }
+  }
+
+  fpt_csr * relabeled_trans_csr = malloc(sizeof(*relabeled_trans_csr));
+  relabeled_trans_csr->total_items = total_items;
+  relabeled_trans_csr->num_trans = trans_csr->num_trans;
+  relabeled_trans_csr->max_item_ID = frequent_items;
+  relabeled_trans_csr->trans_start = malloc( (relabeled_trans_csr->num_trans+1) * sizeof(*relabeled_trans_csr->trans_start) );
+  relabeled_trans_csr->items = malloc( total_items * sizeof(*relabeled_trans_csr->items) );
+
+  /* Add transactions to new dataset */
+  int added_items = 0;
+  relabeled_trans_csr->trans_start[0] = 0;
+  for (int i=0; i<trans_csr->num_trans; i++) {
+    for (int j=trans_csr->trans_start[i]; j<trans_csr->trans_start[i+1]; j++) {
+      if(item_counts[trans_csr->items[j]-1] >= min_sup) {
+        relabeled_trans_csr->items[added_items] = forward_map[trans_csr->items[j]-1];   /* Need to subtract 1 because items are 1-indexed */
+        added_items += 1;
+      }
+    }
+    relabeled_trans_csr->trans_start[i+1] = added_items;
+  }
+
+  /* Sort each transaction so item IDs are in ascending order */
+  for (int i=0; i<relabeled_trans_csr->num_trans; i++) {
+    qsort(relabeled_trans_csr->items + relabeled_trans_csr->trans_start[i], relabeled_trans_csr->trans_start[i+1] - relabeled_trans_csr->trans_start[i], sizeof(*relabeled_trans_csr->items), fpt_lt);
+  }
+
+  return relabeled_trans_csr;
+
+}
+
+/*
+ * @brief Free memory from csr matrix
+ *
+ * @param mat Pointer to csr matrix
+ */
+void fpt_free_csr(
+    fpt_csr * mat)
+{
+  free(mat->trans_start);
+  free(mat->items);
+  free(mat);
+}
 
 /*
  * @brief Creates a new node with NULL pointers
@@ -103,7 +266,7 @@ fpt_node * fpt_new_node()
  */
 fpt_node * fpt_add_child_node(
     fpt_node * parent,
-    unsigned long long item)
+    int item)
 {
   fpt_node * new_node = fpt_new_node();
 
@@ -134,7 +297,7 @@ fpt_node * fpt_add_child_node(
  */
 fpt_node * fpt_add_parent_node(
     fpt_node * child,
-    unsigned long long item)
+    int item)
 {
   fpt_node * new_node = fpt_new_node();
 
@@ -158,6 +321,12 @@ void fpt_delete_node(
 
   /* Do not need to change item pointers because algorithm removes all nodes with a given item, not individual nodes */
 
+  if (node == node->root) {
+    free(node->item_array);
+    free(node);
+    return;
+  }
+
   if (node->prev_sibling != NULL) {      /* Node has a previous sibling */
     node->prev_sibling->next_sibling = node->next_sibling;
   }
@@ -176,14 +345,72 @@ void fpt_delete_node(
   /* MAY BE FASTER IF TAIL OF CHILD LIST IS STORED!!!!!!!!!!!!! */
   if (current != NULL) {    /* Node has children */
     while (current->next_sibling != NULL) {
+      current->parent = node->parent;
       current = current->next_sibling;
     }
+    current->parent = node->parent;
 
     /* Add children to beginning of parent's child list */
     current->next_sibling = node->parent->child;
+    if(current->next_sibling != NULL) {
+      current->next_sibling->prev_sibling = current;
+    }
     current->parent->child = node->child;
   }
 
+  /* Free memory */
+  if (node->item_array != NULL) {
+    free(node->item_array);
+  }
+  free(node);
+
+}
+
+/*
+ * @brief Delete a tree starting at the root
+ *
+ * @param tree Pointer to root of tree
+ */
+void fpt_delete_tree(
+    fpt_node * tree)
+{
+  fpt_node * current = tree->next_sibling;
+
+  if(current != NULL) {
+    fpt_delete_tree(current);
+  }
+
+  current = tree->child;
+
+  if(current != NULL) {
+    fpt_delete_tree(current);
+  }
+
+  fpt_delete_node(tree);
+
+}
+
+/*
+ * @brief Count occurrences of each individual item
+ *
+ * @param mat Matrix of transactions in csr format
+ *
+ * @return counts Array of counts for each item
+ */
+int * count_items(
+    fpt_csr * mat)
+{
+  int * counts = malloc(mat->max_item_ID * sizeof(*counts));
+
+  for (int i=0; i<mat->max_item_ID; i++) {
+    counts[i] = 0;
+  }
+
+  for (int i=0; i<mat->total_items; i++) {
+    counts[mat->items[i]-1] += 1;
+  }
+
+  return counts;
 }
 
 /*
@@ -217,10 +444,10 @@ void fpt_create_item_pointers(
  */
 void fpt_propagate_counts_up(
     fpt_node * tree,
-    unsigned long long item)
+    int item)
 {
 
-  for (unsigned long long i=item; i>0; i--) {
+  for (int i=item; i>0; i--) {
     fpt_node * current = tree->item_array[i-1];
 
     while(current != NULL) {
@@ -229,6 +456,27 @@ void fpt_propagate_counts_up(
     }
   }
 
+}
+
+/*
+ * @brief Travel item pointers to count specific item in tree
+ *
+ * @param node Pointer to beginning of list
+ *
+ * @return count Total count of items along item list
+ */
+int fpt_count_item(
+    fpt_node * node)
+{
+
+  int count = 0;
+
+  while( node != NULL ) {
+    count += node->count;
+    node = node->ngbr;
+  }
+
+  return count;
 }
 
 /*
@@ -243,20 +491,21 @@ fpt_node * fpt_create_fp_tree(
 {
   fpt_node * root = fpt_new_node();
   root->item_array = malloc(trans->max_item_ID * sizeof(*root->item_array));
-  for (unsigned long long i=0; i<trans->max_item_ID; i++) {
+  for (int i=0; i<trans->max_item_ID; i++) {
     root->item_array[i] = NULL;
   }
   root->root = root;
+  root->max_item_ID = trans->max_item_ID;
 
   fpt_node * current_node;
   fpt_node * child;
 
   /* Add each transaction */
-  for( unsigned long long i=0; i<trans->num_trans; i++ ) {
+  for( int i=0; i<trans->num_trans; i++ ) {
     current_node = root;
 
     /* Add each item from current transaction */
-    for( unsigned long long j = trans->trans_start[i]; j<trans->trans_start[i+1]; j++ ) {
+    for( int j = trans->trans_start[i]; j<trans->trans_start[i+1]; j++ ) {
       child = current_node->child;
 
       /* Search for existing path with same item */
@@ -295,25 +544,26 @@ fpt_node * fpt_create_fp_tree(
  */
 fpt_node * fpt_create_prefix_tree(
     fpt_node * tree,
-    unsigned long long item)
+    int item)
 {
   fpt_node * prefix_tree = fpt_new_node();
   prefix_tree->item_array = malloc(item * sizeof(*prefix_tree->item_array));
-  for (unsigned long long i=0; i<item; i++) {
+  for (int i=0; i<item; i++) {
     prefix_tree->item_array[i] = NULL;
   }
 
   prefix_tree->root = prefix_tree;
+  prefix_tree->max_item_ID = item;
 
   /* Array of pointers to current node with each item. Will use to prevent copying nodes multiple times */
   fpt_node ** current_nodes_orig = malloc(item * sizeof(*current_nodes_orig) );
   /* Array of pointers to current node in prefix_tree */
   fpt_node ** current_nodes_pref = malloc(item * sizeof(*current_nodes_pref) );
-  fpt_node * dummy_node;
-  for (unsigned long long i=0; i<item; i++) {
-    dummy_node = fpt_new_node();
-    dummy_node->ngbr = tree->item_array[i];
-    current_nodes_orig[i] = dummy_node;
+  fpt_node ** dummy_nodes = malloc(item * sizeof(*current_nodes_pref) );
+  for (int i=0; i<item; i++) {
+    dummy_nodes[i] = fpt_new_node();
+    dummy_nodes[i]->ngbr = tree->item_array[i];
+    current_nodes_orig[i] = dummy_nodes[i];
     current_nodes_pref[i] = NULL;
   }
   current_nodes_orig[item-1] = tree->item_array[item-1];
@@ -329,6 +579,7 @@ fpt_node * fpt_create_prefix_tree(
     new_node->item = item;
 
     fpt_node * parent_orig = current_nodes_orig[item-1]->parent;
+    int add_to_root = 1;    /* Boolean to tell if path already led to root. If so, don't add redundant nodes as children of root */
     /* Walk up tree and add parents */
     /* This process relies on the fact that the list of pointers is ordered across all items
      * to ensure no node us duplicated multiple times. This is done by walking up paths from
@@ -351,19 +602,22 @@ fpt_node * fpt_create_prefix_tree(
         current_nodes_pref[parent_orig->item-1]->child = new_node;
         new_node->parent = current_nodes_pref[parent_orig->item-1];
 
-        //break;    /* Once an old path is reached, move to next leaf */
+        add_to_root = 0;
+        break;    /* Once an old path is reached, move to next leaf */
       }
 
       parent_orig = parent_orig->parent;  /* Should use commented out "break" above to exit loop when old node is found, but this would add unwanted nodes as children of root */
     }
 
-    /* Add top node as child of root */
-    new_node->parent = prefix_tree;
-    new_node->next_sibling = prefix_tree->child;
-    if(prefix_tree->child != NULL) {
-      prefix_tree->child->prev_sibling = new_node;
+    if(add_to_root) {
+      /* Add top node as child of root */
+      new_node->parent = prefix_tree;
+      new_node->next_sibling = prefix_tree->child;
+      if(prefix_tree->child != NULL) {
+        prefix_tree->child->prev_sibling = new_node;
+      }
+      prefix_tree->child = new_node;
     }
-    prefix_tree->child = new_node;
 
     current_nodes_orig[item-1] = current_nodes_orig[item-1]->ngbr;  /* Move to next node with desired item */
   }
@@ -372,8 +626,117 @@ fpt_node * fpt_create_prefix_tree(
 
   fpt_propagate_counts_up(prefix_tree, item);
 
+  for(int i=0; i<item; i++) {
+    free(dummy_nodes[i]);
+  }
+  free(current_nodes_orig);
+  free(current_nodes_pref);
+  free(dummy_nodes);
+
   return prefix_tree;
 
+}
+
+/*
+ * @brief Create conditional FP tree from prefix paths tree
+ *
+ * @param tree Pointer to root of FP tree
+ * @param item ID of item to project on
+ * @param min_freq Minimum frequency for inclusion in conditional tree
+ *
+ * @return cond_tree Pointer to root of conditional FP tree
+ */
+fpt_node * fpt_create_conditional_tree(
+    fpt_node * tree,
+    int item,
+    int min_freq)
+{
+
+  int count = 0;
+
+  fpt_node * cond_tree = fpt_create_prefix_tree(tree, item);
+  cond_tree->max_item_ID = item-1;
+
+  for (int i=0; i<cond_tree->max_item_ID-1; i++) {
+    count = fpt_count_item(cond_tree->item_array[i]);
+    fpt_node * current;
+    fpt_node * next;
+
+    if(count < min_freq) {
+      current = cond_tree->item_array[i];
+      while(current != NULL) {
+        next = current->ngbr;
+        fpt_delete_node(current);
+        current = next;
+      }
+      cond_tree->item_array[i] = NULL;
+    }
+  }
+
+  /* Remove leaf nodes from tree */
+  fpt_node * current = cond_tree->item_array[cond_tree->max_item_ID];
+  fpt_node * next;
+  while(current != NULL) {
+    next = current->ngbr;
+    fpt_delete_node(current);
+    current = next;
+  }
+  cond_tree->item_array[cond_tree->max_item_ID] = NULL;
+
+  return cond_tree;
+}
+
+/*****************************************
+ * @brief Find frequent itemsets
+ *
+ * @param tree Pointer to root of FP tree
+ * @param item Next item to project onto
+ * @param min_freq Minimum frequency for frequent pattern
+ * @param suffix Current suffix
+ * @param suff_len Current suffix length
+ */
+void fpt_find_frequent_itemsets(
+    fpt_node * tree,
+    int item,
+    int min_freq,
+    int * suffix,
+    int suff_len)
+{
+
+  for (int k=suff_len-1; k>=0; k--) {
+    printf("%d ", *(suffix+k));
+  }
+  printf("\n");
+
+  fpt_node * cond_tree = fpt_create_conditional_tree(tree, item, min_freq);
+  for (int j=item-1; j>0; j--) {
+    if(cond_tree->item_array[j-1] != NULL) {
+      *(suffix+suff_len) = j;
+      suff_len += 1;
+      fpt_find_frequent_itemsets(cond_tree, j, min_freq, suffix, suff_len);
+      suff_len -= 1;
+    }
+  }
+
+  fpt_delete_tree(cond_tree);
+
+  /*
+  for (int i=tree->max_item_ID; i>0; i--) {
+    fpt_node * cond_tree = fpt_create_conditional_tree(tree, i, min_freq);
+    for (int j=i-1; j>0; j--) {
+      if(cond_tree->item_array[j-1] != NULL) {
+        *(suffix+suff_len) = j;
+        suff_len += 1;
+        for (int k=suff_len-1; k>=0; k--) {
+          printf("%llu ", *(suffix+k));
+        }
+        printf("\n");
+        fpt_find_frequent_itemsets(cond_tree, min_freq, suffix, suff_len);
+        suff_len -= 1;
+      }
+    }
+  }
+  */
 }
 
 /*****************************************
@@ -391,8 +754,8 @@ fpt_csr * read_file(
     exit(EXIT_FAILURE);
   }
 
-  unsigned long long num_trans = 0;
-  unsigned long long num_items = 0;
+  int num_trans = 0;
+  int num_items = 0;
 
   char * line = malloc(1024 * 1024);
   size_t len = 0;
@@ -425,17 +788,17 @@ fpt_csr * read_file(
 
   fin = fopen(fname, "r");
 
-  unsigned long long prev_trans_id = 0;
+  int prev_trans_id = 0;
   trans_csr->trans_start[0] = 0;   /* Pointer to beginning of item array */
 
   /* DOESN'T HANDLE EMPTY TRANSACTIONS!!!!!! */
-  for (unsigned long long i=0; i<trans_csr->total_items; i++) {
+  for (int i=0; i<trans_csr->total_items; i++) {
     read = getline(&line, &len, fin);
 
     char * ptr = strtok(line, " ");
     char * end = NULL;
 
-    unsigned long long trans_id = strtoull(ptr, &end, 10);
+    int trans_id = strtoull(ptr, &end, 10);
     if (trans_id > prev_trans_id) {
       trans_csr->trans_start[trans_id] = i;
       prev_trans_id = trans_id;
@@ -443,7 +806,7 @@ fpt_csr * read_file(
 
     ptr = strtok(NULL, " ");
     end = NULL;
-    unsigned long long item = strtoull(ptr, &end, 10);
+    int item = strtoull(ptr, &end, 10);
     trans_csr->items[i] = item;
     if (item > trans_csr->max_item_ID) {
       trans_csr->max_item_ID = item;
@@ -454,6 +817,8 @@ fpt_csr * read_file(
 
   fclose(fin);
 
+  free(line);
+
   return trans_csr;
 
 }
@@ -462,13 +827,50 @@ int main(
     int argc,
     char ** argv)
 {
-  char * ifname = argv[1];
+  int min_sup = atoi(argv[1]);
+  int min_conf = atoi(argv[2]);
+  char * ifname = argv[3];
+  char * ofname = argv[4];
 
   fpt_csr * trans_csr = read_file(ifname);
 
-  fpt_node * fp_tree = fpt_create_fp_tree(trans_csr);
+  int * item_counts = count_items(trans_csr);
 
-  fpt_node * prefix_tree = fpt_create_prefix_tree(fp_tree, 2);
+  int * forward_map = malloc(trans_csr->max_item_ID * sizeof(*forward_map));
+  int * backward_map = malloc(trans_csr->max_item_ID * sizeof(*backward_map));
+
+  fpt_sort_item_IDs(item_counts, trans_csr->max_item_ID, forward_map, backward_map);
+
+  fpt_csr * sorted_trans_csr = fpt_relabel_item_IDs(trans_csr, item_counts, forward_map, min_sup);
+
+  fpt_free_csr(trans_csr);
+
+  fpt_node * fp_tree = fpt_create_fp_tree(sorted_trans_csr);
+
+  int * suffix = malloc((fp_tree->max_item_ID) * sizeof(*suffix));
+
+  /*
+  fpt_node * cond_tree = fpt_create_conditional_tree(fp_tree, 3, 1);
+  cond_tree = fpt_create_conditional_tree(fp_tree, 2, 1);
+  cond_tree = fpt_create_conditional_tree(fp_tree, 1, 1);
+  */
+
+  //fpt_node * tree2 = fpt_create_conditional_tree(fp_tree, 3, 1);
+
+  //fpt_find_frequent_itemsets(fp_tree, 1, suffix, 0);
+
+  for (int i=fp_tree->max_item_ID; i>0; i--) {
+    *suffix = i;
+    fpt_find_frequent_itemsets(fp_tree, i, min_sup, suffix, 1);
+  }
+
+  fpt_delete_tree(fp_tree);
+
+  free(suffix);
+  free(item_counts);
+  free(forward_map);
+  free(backward_map);
+  fpt_free_csr(sorted_trans_csr);
 
   return EXIT_SUCCESS;
 }
