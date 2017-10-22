@@ -7,10 +7,19 @@
 *.dvi
 *.out
 
-# Ignore binaries
+# Ignore written 1 unnecessary files
 written1/code/dgt_compare
+
+# Ignore project 1 unnecessary files
 project1/fptminer
+project1/large
+project1/inter
+project1/small
+project1/tiny
+project1/*.res
+project1/*.mat
 
 
 # Ignore solutions from gk
 project1/gk_sol
+

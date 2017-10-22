@@ -1,17 +1,24 @@
 CC = gcc
 CCFLAGS = -march=native \
-	-O0 \
 	-lm \
-	-Wall
+	-Wall \
+	-O2
 
-debug: CCFLAGS += -g
-
-debug : fptminer
+DBGFLAGS = -march=native \
+	-lm \
+	-Wall \
+	-g \
+	-O0
 
 all : fptminer
 
+debug : fptminer_dbg
+
 fptminer : fptminer.c
 	$(CC) -o fptminer fptminer.c $(CCFLAGS)
+
+fptminer_dbg : fptminer.c
+	$(CC) -o fptminer fptminer.c $(DBGFLAGS)
 
 clean:
 	rm fptminer
