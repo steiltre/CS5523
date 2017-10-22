@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import subprocess
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcdefaults()
 
 ifname = "./large"
-ofname = "./test.res"
 
 min_conf = [0.8, 0.9, 0.95]
 
