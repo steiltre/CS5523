@@ -7,6 +7,12 @@
 *.dvi
 *.out
 
+# Ignore compressed files
+*.tar.gz
+
+# Ignore submission folders
+*/steil016/
+
 # Ignore written 1 unnecessary files
 written1/code/dgt_compare
 

@@ -22,6 +22,7 @@
 \usepackage{xcolor}
 \usepackage{subcaption}
 \usepackage{graphicx}
+\usepackage{wrapfig}
 
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{corollary}{Corollary}[section]
@@ -121,14 +122,6 @@ confidence levels using a minimum support of 50. Comparing the times correspondi
 see from figure \ref{fig:rule_time} that rule generation time was a small fraction of the time required for frequent itemset discovery, as we expected to
 see.
 
-The relation between running time and number of rules generated is slightly harder to identify for rule generation given the smaller number of data points
-and the large number of frequent itemsets that need to be processed relative to the number of rules generated. In this case, we see that there
-are between 82000 and 422000 rules generated for these minimum confidence levels. Looking in figure \ref{fig:freq_count}, there are approximately
-167000 frequent itemsets that need to be processed during rule generation. Much of the running time for rule generation may be due to the large number
-of frequent itemsets that need to be processed relative to the number of rules generated, causing running times to be closer together than the number
-of rules for different confidence levels. A more useful measure for trying to explain differences in running times would probably be the total number
-of candidate rules at each confidence level.
-
 \begin{figure}[h!]
   \centering
   \begin{subfigure}[t]{0.45\textwidth}
@@ -147,6 +140,25 @@ of candidate rules at each confidence level.
   \label{fig:rule}
 \end{figure}
 
+The relation between running time and number of rules generated is slightly harder to identify for rule generation given the smaller number of data points
+and the large number of frequent itemsets that need to be processed relative to the number of rules generated. In this case, we see that there
+are between 82000 and 422000 rules generated for these minimum confidence levels. Looking in figure \ref{fig:freq_count}, there are approximately
+167000 frequent itemsets that need to be processed during rule generation. Much of the running time for rule generation may be due to the large number
+of frequent itemsets that need to be processed relative to the number of rules generated, causing running times to be closer together than the number
+of rules for different confidence levels.
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+  \centering
+  \includegraphics[height=2in]{cand_rule.pdf}
+  \caption{Number of candidate rules generated with various minimum confidence levels with a minimum support count of 50}
+  \label{fig:cand_rule}
+\end{wrapfigure}
+
+Figure \ref{fig:cand_rule} shows the number of candidate rules generated for the same confidence and support
+levels. The number of candidate rules shows a closer relation to running time than number of rules generated did, but the running time for a minimum
+support of 0.95 still seems higher than expected. That being said, there is not enough data to try drawing a conclusion about the relation between
+running time and number of rules or candidate rules.
+
 \section{Further Improvements}
 From this project there are a few improvements that could probably lead to improved performance. First, we notice that completely linear conditional
 FP-trees can have frequent itemsets extracted more easily. Each further conditional FP-tree constructed from a linear FP-tree will also be linear, so
@@ -158,10 +170,18 @@ The above observation can be used to generate frequent itemsets deep in the FP-t
 itemsets until the conditional FP-tree is linear, at which point the suffix can be grown by taking all combinations of items at nodes with a support
 count above the threshold.
 
-I made an attempt at using this observation but was unable to get an increase in performance. This is due to the method by which I was checking for
-linearity of FP-trees. I was checking after construction of the tree rather than recognizing that I can simply report if a conditional FP-tree is
-linear by checking if there is only one node from which the prefix paths are constructed. This change may give a slight increase in performance if
-implemented correctly.
+I made an attempt at using this observation but was unable to get an increase in performance. I had to create frequent itemsets in the correct order
+for the binary search necessary to look up support counts during rule generation. I was able to use bit masking to create the itemsets in the correct
+order, but this process ended up being slightly slower than continuing to use the recursive function to generate frequent itemsets. With a faster
+implementation of this handling of linear trees, I believe an increase in performance would be observed.
+
+My implementation of FP-Growth explicitly constructs each conditional FP-tree while performing the depth-first search on the itemset lattice. All FP-trees
+along a search path remain in memory until that particular path has been exhausted. For low
+minimum support counts, the depth of this search path can be quite large with very few nodes being removed from the FP-tree at each step, leading to
+several copies of an almost complete dataset being stored in memory. This leads to a very large memory footprint for certain problems. It may be
+possible to reduce this footprint by either reducing the size of each individual node in the tree or by somehow storing a copy of a conditional
+FP-tree without explicitly constructing all of its nodes when it remains very similar to the FP-tree it was created from. The large memory usage may
+be unavoidable in these low minimum support problems, making these changes difficult or impossible.
 
 Another possibility for improvement would be in the searching of support counts for frequent itemsets during rule generation. I recognized there is an
 order in which frequent itemsets are generated that allows for a binary search to be used. Performing a single search in this manner is a $O(\log n)$

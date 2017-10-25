@@ -17,6 +17,7 @@
 
 static int const DYN_ARRAY_INIT_CAPACITY = 32;
 
+
 /******************************************
  * Structs
 ******************************************/
@@ -1136,27 +1137,6 @@ fpt_node * fpt_create_conditional_tree(
   cond_tree->item_array[cond_tree->max_item_ID] = NULL;
 
   return cond_tree;
-}
-
-/*
- * @brief Check if a tree is linear
- *
- * @param tree Pointer to root of tree
- *
- * @return Boolean signifying if tree is linear or not
- */
-int fpt_check_tree_linearity(
-    fpt_node * tree)
-{
-  fpt_node * current = tree->child;
-
-  while(current != NULL) {
-    if (current->next_sibling != NULL) {    /* Node has a sibling */
-      return 0;
-    }
-    current = current->child;
-  }
-  return 1;
 }
 
 /*
