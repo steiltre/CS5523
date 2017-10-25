@@ -23,6 +23,34 @@ static int const DYN_ARRAY_INIT_CAPACITY = 32;
 ******************************************/
 
 /*
+ * @brief A generic dynamic array
+ */
+typedef struct {
+  /* Maximum number of elements */
+  int cap;
+
+  /* Current number of elements */
+  int n_elmnts;
+
+  /* Size of elements in array */
+  size_t elmnt_size;
+
+  /* Array of values */
+  void * vals;
+} fpt_dyn_arr;
+
+/*
+ * @brief A sparse stack representation where items are expected to be repeated on stack
+ */
+typedef struct {
+  /* Stack values */
+  fpt_dyn_arr * vals;
+
+  /* Stack counts */
+  fpt_dyn_arr * counts;
+} fpt_sparse_stack;
+
+/*
  * @brief A structure for a node of an FP tree
  */
 typedef struct fpt_node {
@@ -227,6 +255,27 @@ int fpt_lt(
 }
 
 /*
+ * @brief Allocate space for dynamic array
+ *
+ * @param size Size of elements to store
+ *
+ * @return Allocated dynamic array
+ */
+fpt_dyn_arr * fpt_dyn_arr_alloc(
+    size_t size)
+{
+  fpt_dyn_arr * arr = malloc(sizeof(*arr));
+
+  arr->cap = DYN_ARRAY_INIT_CAPACITY;
+  arr->n_elmnts = 0;
+  arr->elmnt_size = size;
+
+  arr->vals = malloc(DYN_ARRAY_INIT_CAPACITY * arr->elmnt_size);
+
+  return arr;
+}
+
+/*
  * @brief Initialize dynamic array
  *
  * @return Allocated dynamic array
@@ -265,6 +314,30 @@ fpt_dyn_array_dbl * fpt_dyn_array_dbl_malloc()
  *
  * @param arr Dynamic array
  */
+void fpt_dyn_arr_double(
+    fpt_dyn_arr * arr)
+{
+  arr->vals = realloc(arr->vals, 2 * arr->cap * arr->elmnt_size);
+  arr->cap = 2 * arr->cap;
+}
+
+/*
+ * @brief Reduce capacity of dynamic array by half
+ *
+ * @param arr Dynamic array
+ */
+void fpt_dyn_arr_half(
+    fpt_dyn_arr * arr)
+{
+  arr->cap = arr->cap / 2;
+  arr->vals = realloc(arr->vals, arr->cap * arr->elmnt_size);
+}
+
+/*
+ * @brief Double size of dynamic array
+ *
+ * @param arr Dynamic array
+ */
 void fpt_dyn_array_double(
     fpt_dyn_array * arr)
 {
@@ -282,6 +355,46 @@ void fpt_dyn_array_dbl_double(
 {
   arr->array = (double *) realloc(arr->array, 2 * arr->capacity * sizeof(*arr->array));
   arr->capacity = 2 * arr->capacity;
+}
+
+/*
+ * @brief Add values to dynamic array
+ *
+ * @param arr Dynamic array
+ * @param new_vals Array of values to add
+ * @param len Number of values being added
+ */
+void fpt_dyn_arr_add_values(
+    fpt_dyn_arr * arr,
+    void * val,
+    int len)
+{
+  while(arr->n_elmnts + len > arr->cap) {
+    fpt_dyn_arr_double(arr);
+  }
+
+  memcpy(arr->vals + arr->n_elmnts * arr->elmnt_size, val, len * arr->elmnt_size);
+
+  arr->n_elmnts += len;
+}
+
+/*
+ * @brief Remove elements from dynamic array
+ *
+ * @param arr Dynamic array
+ * @param num Number of elements to remove
+ */
+void fpt_dyn_arr_remove(
+    fpt_dyn_arr * arr,
+    int num)
+{
+  arr->n_elmnts -= num;
+
+  /* Don't reduce size of array for now to prevent accessing freed memory
+  while (arr->n_elmnts < arr->cap / 4) {
+    fpt_dyn_arr_half(arr);
+  }
+  */
 }
 
 /*
@@ -344,6 +457,18 @@ void fpt_dyn_array_dbl_add(
  *
  * @param arr Pointer to dynamic array
  */
+void fpt_dyn_arr_free(
+    fpt_dyn_arr * arr)
+{
+  free(arr->vals);
+  free(arr);
+}
+
+/*
+ * @brief Free dynamic array
+ *
+ * @param arr Pointer to dynamic array
+ */
 void fpt_dyn_array_free(
     fpt_dyn_array * arr)
 {
@@ -361,6 +486,83 @@ void fpt_dyn_array_dbl_free(
 {
   free(arr->array);
   free(arr);
+}
+
+/*
+ * @brief Allocate space for a sparse stack
+ *
+ * @param size Size of elements to put on stack
+ *
+ * @return Allocated stack
+ */
+fpt_sparse_stack * fpt_sparse_stack_alloc(
+    size_t size)
+{
+  fpt_sparse_stack * stack = malloc(sizeof(*stack));
+
+  stack->vals = fpt_dyn_arr_alloc(size);
+  stack->counts = fpt_dyn_arr_alloc( sizeof(int) );
+
+  return stack;
+}
+
+/*
+ * @brief Free space for sparse stack
+ *
+ * @param stack Sparse stack to free
+ */
+void fpt_sparse_stack_free(
+    fpt_sparse_stack * stack)
+{
+  fpt_dyn_arr_free(stack->vals);
+  fpt_dyn_arr_free(stack->counts);
+  free(stack);
+}
+
+/*
+ * @brief Push element onto stack
+ *
+ * @param stack Pointer to stack receiving elemtent
+ * @param elmnt Pointer to element to add to stack
+ */
+void fpt_sparse_stack_push(
+    fpt_sparse_stack * stack,
+    void * elmnt)
+{
+  if ( memcmp(stack->vals->vals + (stack->vals->n_elmnts - 1) * stack->vals->elmnt_size, elmnt, stack->vals->elmnt_size) == 0) {     /* Item to add is same as previous item */
+    *(int*)(stack->counts->vals + (stack->counts->n_elmnts-1) * stack->counts->elmnt_size) += 1;
+  }
+  else {
+    int count = 1;
+    fpt_dyn_arr_add_values( stack->vals, elmnt, 1 );
+    fpt_dyn_arr_add_values( stack->counts, &count, 1);
+  }
+}
+
+/*
+ * @brief Pop element from stack
+ *
+ * @param stack Pointer to stack to pop from
+ *
+ * @return Pointer to elemnt
+ */
+void * fpt_sparse_stack_pop(
+    fpt_sparse_stack * stack)
+{
+  *(int*)(stack->counts->vals + (stack->counts->n_elmnts-1) * stack->counts->elmnt_size) -= 1;
+
+  void * ret;  /* Pointer to return */
+
+  if ( *(int*)(stack->counts->vals + (stack->counts->n_elmnts-1) * stack->counts->elmnt_size) == 0) {   /* Last value occurs zero times */
+    fpt_dyn_arr_remove(stack->counts, 1);
+    fpt_dyn_arr_remove(stack->vals, 1);
+    ret = stack->vals->vals + stack->vals->n_elmnts * stack->vals->elmnt_size;
+  }
+  else {
+    ret = stack->vals->vals + (stack->vals->n_elmnts - 1) * stack->vals->elmnt_size;
+  }
+
+  return ret;
 }
 
 /*
@@ -1432,6 +1634,27 @@ int main(
   if (argc > 3) {
     ofname = argv[4];
   }
+
+  int i;
+  fpt_sparse_stack * stack = fpt_sparse_stack_alloc( sizeof(int) );
+  i = 1;
+  fpt_sparse_stack_push(stack, &i);
+  i = 2;
+  fpt_sparse_stack_push(stack, &i);
+  i = 2;
+  fpt_sparse_stack_push(stack, &i);
+
+  int j = *(int*)fpt_sparse_stack_pop(stack);
+  j = *(int*)fpt_sparse_stack_pop(stack);
+  j = *(int*)fpt_sparse_stack_pop(stack);
+
+  i=2;
+  fpt_sparse_stack_push(stack, &i);
+  i=3;
+  fpt_sparse_stack_push(stack, &i);
+  i=2;
+  fpt_sparse_stack_push(stack, &i);
+  fpt_sparse_stack_free(stack);
 
   fpt_dyn_csr * trans_csr = read_file(ifname);
 
