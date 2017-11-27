@@ -25,6 +25,11 @@ project1/tiny
 project1/*.res
 project1/*.mat
 
+project2/kcluster
+project2/*.csv
+project2/*.class
+project2/*.clabel
+
 
 # Ignore solutions from gk
 project1/gk_sol

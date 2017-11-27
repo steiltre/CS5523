@@ -1,0 +1,303 @@
+%        File: written2.tex
+%     Created: Sun Nov 05 10:00 PM 2017 C
+% Last Change: Sun Nov 05 10:00 PM 2017 C
+%
+
+\documentclass[11pt]{article}
+
+\title{Assignment 2 }
+\date{\today}
+\author{Trevor Steil}
+
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage[margin=1.0in]{geometry}
+\usepackage{esint}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{bbm}
+\usepackage{xcolor}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem*{claim}{Claim}
+%\newtheorem*{problem}{Problem}
+%\newtheorem*{lemma}{Lemma}
+\newtheorem{definition}{Definition}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\supp}[1]{\mathop{\mathrm{supp}}\left(#1\right)}
+\newcommand{\lip}[1]{\mathop{\mathrm{Lip}}\left(#1\right)}
+\newcommand{\curl}{\mathrm{curl}}
+\newcommand{\la}{\left \langle}
+\newcommand{\ra}{\right \rangle}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\renewcommand{\div}{\mathrm{div}}
+
+\newenvironment{problem}{\textbf{Problem.}}
+
+\newenvironment{solution}[1][]{\emph{Solution #1}}
+
+\algnewcommand{\Or}{\textbf{ or }}
+\algnewcommand{\And}{\textbf{ or }}
+
+% Indent paragraphs and remove spacing between paragraphs in itemize and enumerate environments
+\setlist{ listparindent=\parindent, parsep=0pt,}
+
+
+\begin{document}
+\maketitle
+
+\begin{enumerate}
+  \item
+    \begin{problem}
+      Consider a special case of the sequential pattern-mining problem where elements are always singleton items. What difference would it make to the
+      GSP algorithm?
+    \end{problem}
+    \begin{solution}
+      In GSP, candidate $k$-subsequences are generated using frequent subsequences of length $k-1$. When $k=2$, subsequences of
+      length 1, $\{i_1\}$ and $\{i_2\}$, are combined by creating the candidates, $\{i_1\} \{i_1\}, \{i_1\} \{i_2\}, \{i_2\} \{i_1\}, \{i_2\}
+      \{i_2\}$, and $\{i_1, i_2\}$. In the case of all elements being singleton items, the last candidate, $\{i_1, i_2\}$ can be skipped during
+      candidate generation because a 2-subsequence could not be frequent since its support count must be 0.
+
+      Every step after the generation of 2-subsequences will remain unchanged because of the way candidate sequences are generated. For $k \geq 3$,
+      when two $(k-1)$-subsequences, $s_1$ and $s_2$, are used to generate a candidate $k$-subsequence by matching the $(k-2)$-prefix of $s_1$ with the $(k-2)$-suffix of
+      $s_2$, the last event of $s_2$ is added to the end of the $s_1$. In the case that the last event of $s_2$ is the only event in its element, this
+      event is added as a new element, adding a new singleton item to the end of $s_1$. By establishing that the last event of all $2$-subsequences
+      are singleton items, we can inductively see that all elements in $k$-subsequences for $k \geq 2$ will be singleton items.
+
+      When sequential pattern-mining with a max-gap constraint, the process of pruning becomes ineffective. The max-gap constraint is not
+      downward-closed, so we instead use contiguous subsequences for pruning. When two $k$-subsequences are used to generate a $(k+1)$ candidate
+      subsequence, the only contiguous $k$-subsequences are the two frequent $k$-subsequences used to generate it. This leaves no way to prune
+      candidate sequences.
+    \end{solution}
+
+  \item
+    \begin{problem}
+      You are given a database of labeled graphs. In each graph, the vertices have non-unique labels but the edges have unique labels. Describe an
+      efficient level-by-level algorithm (i.e., Apriori-style) for finding all frequent connected sub-graphs.
+    \end{problem}
+    \begin{solution}
+      With unique edge labels, we can use the standard Apriori-style algorithm for frequent subgraph mining, but we can reduce the complexity of the
+      necessary graph isomorphism computations. Using the edge growing approach for candidate generation, we begin by finding all frequent subgraphs
+      with 0, 1, or 2 edges. For $k \geq 3$ edges, we determine frequent subgraphs with $k-1$ edges that share a common $k-2$ core and add the extra
+      edges to create a candidate with $k$ edges.
+
+      After candidate graphs with $k$ edges are generated, the candidates must be pruned by independently removing each edge from a candidate and
+      checking to see if this subgraph is frequent. Each of these checks requires a graph isomorphism problem to be solved through the use of
+      canonical labels. The canonical label for a graph with unique edge labels can be computed more efficiently, as we will describe below.
+
+      Once the candidate graphs have been pruned, the support of the remaining candidates must be computed by solving a subgraph isomorphism problem
+      with the graphs in the database and the candidate graphs. By maintaining lists of IDs for graphs supporting a frequent subgraph, the necessary
+      graphs from the database to check a candidate against can be found by intersecting the set of supporting IDs for the frequent subgraphs with
+      $k-1$ edges that were merged to form the current candidate. This will not reduce the computational complexity, but should reduce
+      the runtime.
+
+      Graph isomorphism problems tend to be difficult because the canonical label of a graph must be computed. This requires assigning IDs to vertices
+      and producing a flattened representation of the adjacency matrix with these IDs. The canonical label is then chosen to be the (portion above the
+      main diagonal of the) adjacency matrix which is lexicographically smallest among all assignings of IDs to vertices. For simplicity of describing
+      the process of finding the canonical label, we will consider the case of all vertices having the same label (equivalently, unlabeled vertices).
+      In the case of more than one label, we can first sort the vertices by label and then apply the ideas from below.
+
+      When the edge labels are unique, we can begin by sorting the set of edge labels. The idea we want to use is that we need to force the highest
+      edge labels to be as early in the canonical label as possible, or else we can reassign IDs to vertices to get a lexicographically greater label.
+      The largest edge label needs to be the first entry in canonical
+      label (if we had a canonical label where this wasn't true, we could reassign IDs to make the first entry the largest edge label, thereby giving
+      a lexicographically greater label). The only choice we have at this step is which vertex order to give IDs to the vertices incident to this
+      highest-labeled edge. The correct choice is to choose the vertex which is incident to the highest labeled edge besides the one connecting them
+      to be labeled ``0''. The other will be labeled ``1''.
+
+      Vertex IDs can then be distributed by sequentially removing the edge with the highest remaining edge label adjacent to the vertex with the ID of 0 and
+      assigning the vertex on the other end of this edge the next ID. After all of the edges have been used for this vertex, move onto the vertex with
+      an ID of 1 and do the same process. This continues until all vertices in the graph have been given IDs.
+
+      This greedy algorithm will give the canonical label and also gives a way of detecting when a graph is not connected. If all of the edges for
+      vertices already given IDs are exhausted while a vertex hasn't been assigned an ID, then there is no path from the vertex with ID 0 to the
+      vertex with no ID. Therefore, the graph is disconnected. It is easy to see the reverse implication is also true (i.e., if a graph is
+      disconnected, the edges incident to vertices with IDs will be exhausted before all vertices have IDs).
+
+      As mentioned above, the outlined method works for finding the canonical label where each vertex has the same label. When this is not the case,
+      we can create a ``canonical label'' in a couple of different ways. The first way is to use the standard canonical label defined by grouping
+      vertices by label and assigning IDs to all vertices labeled ``a'' first, followed by vertices labeled ``b'', and so on.
+      In this case, the edge with the largest
+      weight connecting vertices labeled ``a'' determines the vertices given the IDs ``0'' and ``1''. In the event of ties, edges between vertices
+      labeled ``a'' and ``b'' are used to assign IDs, follow by vertices labeled ``c'' and so on. After all vertices labeled ``a'' are given IDs, the
+      heaviest edges from vertices labeled ``a'' and ``b'' are used to determine the IDs for vertices labeled ``b'', and so on.
+
+      The second, and simpler, way of creating a ``canonical label'' for graphs where not all vertices have the same label is proceed exactly as in
+      the method for when all vertices had the same label. As this process assigns IDs to vertices, the label of each vertex can be stored in an
+      array. This gives a ``canonical label'' which is a standard canonical label arising from an adjacency matrix accompanied by the array of vertex
+      labels. In order for two graphs to be isomorphic, each of these pieces must match.
+
+      The subgraph isomorphism problem can also be made more efficient with unique edge labels. Take a graph $G_1 = (V_1, E_1)$ and assume we are
+      trying to determine if $G_2 = (V_2, E_2)$ is isomorphic to a subgraph of $G_1$. In this context, we also know the labels in both edge sets are
+      distinct within $G_1$ and $G_2$. If $|V_1| < |V_2|$ or $|E_1| < |E_2|$, there can be no such
+      isomorphism. We will progress by removing appropriate vertices and edges from $G_1$ until we are left with a graph that may be isomorphic to
+      $G_2$.
+
+      Assume $|V_1| \geq |V_2|$. Because the edge labels in $G_1$ and $G_2$ are unique, the vertices that need to be removed from $V_1$ must
+      be only incident to edges with labels not seen in $G_2$. We first find all such vertices in $G_1$. After removing these vertices from $V_1$ and all of their incident edges in $E_1$,
+      we must have $|V_1| = |V_2|$ if we are to
+      have a subgraph isomorphism. If this equality does not hold, the edges present in $G_2$ connect a larger set of vertices in $G_1$, and there
+      cannot be an isomorphism.
+
+      If the cardinalities of vertex sets match at this point, we can remove all $e \in E_1$ with a label that does not occur in $E_2$.
+      At this point, the canonical label for the remaining piece of $G_1$ can be computed and compared against the
+      canonical label for $G_2$. If the two match, $G_1$ has a subgraph isomorphic to $G_2$. This method relies on the uniqueness of edge labels to
+      quickly pick out the vertices and edges that need to be removed from $G_1$ to get a subgraph isomorphic to $G_2$.
+    \end{solution}
+
+  \item
+    \begin{problem}
+      Consider the problem of frequent subraph mining in a single large graph $G$. Consider the $k$-vertex graph pattern $g = (V,E)$ that occurs $F$
+      times in $G$ and further assume that these $F$ occurrences are not disjoint; that is, at least one vertex in $G$ is used in at least two
+      occurrences of the subraph $g$. For each vertex $v_i$ in $V$, let $f(v_i)$ be the number of distinct vertices in $G$ that are used in the $F$
+      occurrences of $g$. Note that $f(v_i) \leq F$, because the occurrences are not disjointed. Let $h(g)$ be the minimum of $\{ f(v_1), f(v_2),
+      \dots, f(v_k) \}$. Consider an algorithm that uses $h(g)$ as the measure of $g$'s frequency. Is this way of defining the frequency of a subgraph
+      downward closed? Make sure that you provide a proof for your answer.
+    \end{problem}
+    \begin{solution}
+      \begin{claim}
+        This definition of frequency is downward-closed.
+      \end{claim}
+      \begin{proof}
+        Assume $g$ is frequent according to this definition with a minimum support of $\sigma$. Then
+        \[ h(g) = \min_{v_i \in V} f(v_i) \geq \sigma .\]
+
+        Define the graph $\tilde{g} = (V \setminus \{v\}, \tilde{E})$ for some $v \in V$ where $\tilde{E}$ is the set of edges obtained by removing
+        all edges from $E$ which are incident to $v$. Because $\tilde{g}$ is a subgraph of $g$, $\tilde{g}$ occurs at least $F$ times in $G$ assuming
+        $g$ does. Therefore, for each $v_i \in V \setminus \{v\}$, we have
+        \[ f_g(v_i) \leq f_{\tilde{g}} (v_i) \]
+        where we use $f_g (u)$ to denote the number of distinct copies of $u$ used in the total occurrences of $g$ (we are simply making the
+        dependence on the subgraph $g$ explicit).
+
+        Because $V \setminus \{v\} \subset V$,
+        \[ \min_{v_i \in V} f_g(v_i) \leq \min_{v_i \in V \setminus \{v\}} f_g(v_i). \]
+
+        Combining these inequalities, we have
+        \begin{align*}
+          h(\tilde{g}) &= \min_{v_i \in V \setminus \{v\}} f_{\tilde{g}} (v_i) \\
+          &\geq \min_{v_i \in V \setminus \{v\}} f_g(v_i) \\
+          &\geq \min_{v_i \in V} f_g(v_i) \\
+          &= h(g) \\
+          &\geq \sigma
+        \end{align*}
+        Therefore, if $g$ is frequent, its subgraphs with one fewer vertex will be as well
+      \end{proof}
+    \end{solution}
+
+  \item
+    \begin{problem}
+      Under the assumption that each bisection step of bisecting $K$-means results in a near 50-50 split, compute the complexity of computing a
+      $k$-way clustering solution of bisecting $K$-means and the standard $K$-means algorithm.
+    \end{problem}
+    \begin{solution}
+      For standard $k$-means, we have two steps to look at: assigning points to clusters and calculating centroids. To assign a point to a cluster,
+      the distance from each point to each centroid is calculated. This is a $O(n \cdot d \cdot k)$ operation, where $n$ is the number of points and $d$ is the
+      dimensionality of points. To calculate centroids, coordinates of points within a cluster must be averaged, giving a $O(n \cdot d)$ operation. Adding
+      these operations up over the total number of iterations, $I$, we get a total runtime of $O(n \cdot d \cdot k \cdot I)$.
+
+      For bisecting $k$-means, clusters must be split in half $k-1$ times in order to end up with $k$ clusters. Because the bisections use standard
+      $k$-means with $k=2$, the worst case for computational complexity is when each iteration splits the largest cluster available. Given this, the
+      worst case occurs when the $i$-th bisection splits a cluster with $\frac{n}{2^{\lfloor \log i \rfloor}}$ points. This gives a complexity of $O
+      \left( \frac{n}{2^{\lfloor \log i \rfloor}} \cdot d \cdot I \right)$ for the $i$-iteration in the worst case. Adding up the complexities for
+      each individual bisection gives an overall complexity of
+      \begin{align*}
+        O \left( \sum_{i=1}^{k-1} \frac{n}{2^{\lfloor \log i \rfloor}} \cdot d \cdot I \right) &= O \left( n \cdot d \cdot I \cdot \sum_{i=1}^{k-1}
+        \frac{1}{2^{\lfloor \log i \rfloor}} \right) \\
+        &= O \left( n \cdot d \cdot I \cdot \log k \right)
+      \end{align*}
+      for the worst case. To get this last equality, we can (very non-rigorously) say the terms of the sum are $\frac{1}{i}$ after ignoring the floor
+      function, leaving us with a harmonic sum which is known to grow logarithmically. A more intuitive way of seeing this logarithmic dependence on
+      $k$ is to notice that the worst case we are considering uses $n$ points for the first bisection. The next two bisections will each use clusters
+      that start with $\frac{n}{2}$ points. The next four bisections will each use clusters that start with $\frac{n}{4}$ points from the previous
+      bisections, and so on. This means that the first iteration adds a power of $n$ from the use of standard $k$-means, followed by another $n$ from
+      the next two bisections, and another $n$ from the next four iterations, and so on. That is, the rate at which we are adding $n$ to the
+      computational complexity is logarithmic in $k$, giving the complexity of $O( n \cdot d \cdot I \cdot \log k)$. In bisecting $k$-means, each
+      bisection is typically performed $T$ times, with the best bisection being the one actually used. This makes the complexity $O( n \cdot d \cdot I
+      \cdot T \cdot \log k)$.
+
+      It is important to note this is the worst case complexity under the assumption of roughly even bisections at every step. It is possible to get
+      bisections at every iteration that split a large cluster into $O(1)$ points in a small cluster and the remaining $O(n)$ points in the remaining
+      large cluster. In this case, we would get a complexity of $O(n \cdot d \cdot I \cdot T \cdot k)$.
+
+    \end{solution}
+
+  \item
+    \begin{problem}
+      Provide a detailed analysis of the computational and memory complexity of the UPGMA clustering algorithm.
+    \end{problem}
+    \begin{solution}
+      UPGMA is a hierarchical clustering algorithm that measures the proximity of clusters as the average pairwise proximity of points within each
+      cluster. In the following, we will use $n$ to denote the number of points in the dataset.
+
+      To begin, each cluster contains singleton elements. The proximity matrix at this point contains proximities between every pair of elements. To
+      fill this matrix, we need to compute $O(n^2)$ proximity calculations. For the $i$-th iteration of UPGMA, the proximity matrix contains
+      proximities between $n-i+1$ clusters. To find the largest proximity, we can scan through the $O( (n-i+1)^2 )$ values in the proximity matrix.
+
+      After finding the largest proximity in the proximity matrix, we must merge the corresponding clusters and update the proximity matrix. We will
+      assume that we are merging clusters $C_i$ and $C_j$ with $|C_i| = n_i$ and $|C_j| = n_j$. We will (with a slight abuse of notation) use $f$ to
+      denote our proximities between clusters as well as between points. To determine the proximity of $C_i \cup C_j$ with a
+      cluster $C_k$ of size $|C_k| = n_k$, we could directly use the formula
+      \begin{equation*}
+        f(C_i \cup C_j, C_k) = \frac{ \sum_{p_i \in C_i \cup C_j, p_k \in C_k} f(p_i, p_k)}{(n_i + n_j) n_k}
+      \end{equation*}
+      to recompute the proximities from scratch. This would require averaging $(n_i + n_j) n_k$ values, giving a complexity of $O( (n_i + n_j) n_k)
+      )$. A better way to compute $f(C_i \cup C_j, C_k)$ is to recognize that the proximity matrix already contains the values $f(C_i, C_k)$ and
+      $f(C_j, C_k)$. We can write
+      \begin{align*}
+        f(C_i \cup C_j, C_k) &= \frac{ \sum_{p_i \in C_i \cup C_j, p_k \in C_k} f(p_i, p_k)}{(n_i + n_j) n_k} \\
+        &= \frac{ \sum_{p_i \in C_i, p_k \in C_k} f(p_i, p_k)}{(n_i + n_j) n_k} + \frac{ \sum_{p_j \in C_j, p_k \in C_k} f(p_j, p_k)}{(n_i + n_j) n_k}
+        \quad \hbox{because $C_i \cap C_j = \emptyset$} \\
+        &= \frac{ \sum_{p_i \in C_i, p_k \in C_k} f(p_i, p_k)}{n_i n_k} \cdot \frac{n_i}{n_i + n_j} + \frac{\sum_{p_j \in C_j, p_k \in C_k} f(p_j,
+        p_k)}{n_j n_k} \cdot \frac{n_j}{n_i + n_j} \\
+        &= f(C_i, C_k) \cdot \frac{n_i}{n_i + n_j} + f(C_j, C_k) \cdot \frac{n_j}{n_i + n_j}
+      \end{align*}
+      Therefore, each entry in the proximity matrix can be updated in $O(1)$ operations by storing the size of clusters and using previously computed
+      cluster proximities. The $i$-th iteration starts with $n-i+1$ clusters, and therefore takes $O(n-i)$ time to delete the rows corresponding to
+      $C_i$ and $C_j$ and compute the row and column corresponding to $C_i \cup C_j$.
+
+      The UPGMA algorithm has an initial complexity of $O(n^2)$ to compute the proximity matrix. Then $n-1$ cluster merges occur. To determine the
+      clusters to merge, the proximity matrix must be scanned, which is a $O( (n-i)^2 )$ operation for the $i$-th merge. Merging these clusters gives
+      a complexity of $O(n-i)$. The dominant part of the calculation is just determining the correct clusters to merge and gives an overall complexity
+      of $O(n^3)$. By storing the proximities in a priority queue, finding the correct clusters to merge can be done in $O(1)$ time, but updating
+      proximities in the queue requires $O( (n-i) \log (n-i) )$ time during the $i$-th iteration. This reduces the overall complexity to $O( n^2 \log
+      n)$.
+
+      UPGMA maintains a proximity matrix or priority queue of pairwise proximities between clusters. Therefore, the memory complexity is $O(n^2)$.
+    \end{solution}
+
+  \item
+    \begin{problem}
+      Consider a sparse high-dimensional dataset of unary attributes. If I was to perform feature selection prior to clustering, which features should
+      I eliminate and which ones should I keep?
+    \end{problem}
+    \begin{solution}
+      You would want to determine a subset of the features which have small correlations (we are using the term correlation somewhat colloquially
+      here). When features have high correlations, the inclusion of
+      multiple features provides very little new information for separating items.
+
+      As an example, consider a dataset of articles with features that signify the presence of words in an article. In an article featuring the word
+      ``football'', it would not be surprising to also see words including ``touchdown'', ``quarterback'', and ``interception''. The inclusion of a
+      small subset of these words would be enough to identify this article as a sports article and separate it from a cluster featuring financial
+      articles.
+
+      Because the attributes are unary, we are only concerned with the presence of an attribute. As this is the case, we could use a measure like the
+      Jaccard similarity applied to attributes to get an idea of when an attribute occurs frequently with another attribute. When the Jaccard
+      similarity of two attributes is very high, we could remove one of the attributes.
+    \end{solution}
+
+\end{enumerate}
+\end{document}
+
+
