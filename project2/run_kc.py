@@ -5,13 +5,13 @@ import os
 
 print os.getcwd()
 
-#ifnames = ["./freq.csv", "./sqrtfreq.csv", "./log2freq.csv"]
-ifnames = ["./2d_test.csv"]
-#classname = "./reuters21578.class"
-classname = "./2d_test.class"
+ifnames = ["./freq.csv", "./sqrtfreq.csv", "./log2freq.csv"]
+#ifnames = ["./2d_test.csv"]
+classname = "./reuters21578.class"
+#classname = "./2d_test.class"
 crit_funcs = ["SSE", "I2", "E1"]
-#num_clusters = [20, 40, 60]
-num_clusters = [2, 3]
+num_clusters = [20, 40, 60]
+#num_clusters = [2, 3]
 num_trials = 20
 outfile = "./test.csv"
 

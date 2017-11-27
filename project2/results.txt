@@ -1,27 +1,28 @@
+/home/steil016/Documents/CSE/5523/project2
 \begin{figure}[h]
 	\begin{tabular}{| r | r | r | r | r | r | }
 		\hline
 		\multicolumn{6}{| c | } { SSE Results } \\
 		\hline
-		Input File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\
-		freq.csv & 20 & 84.2379 & -0.2167 & 0.6625 & 21.5783 \\
+		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
 		\hline
-		freq.csv & 40 & 76.4664 & -0.3468 & 0.7374 & 37.4696 \\
+		freq.csv & 20 & 84.2379 & 1.5621 & 0.6625 & 29.4926 \\
 		\hline
-		freq.csv & 60 & 71.9207 & -1.1809 & 0.7507 & 55.9527 \\
+		freq.csv & 40 & 76.4664 & 1.2657 & 0.7374 & 39.1060 \\
 		\hline
-		sqrtfreq.csv & 20 & 38.6697 & 0.1822 & 0.7085 & 18.0948 \\
+		freq.csv & 60 & 71.9207 & 1.1741 & 0.7507 & 54.8797 \\
 		\hline
-		sqrtfreq.csv & 40 & 35.7520 & -0.2757 & 0.7392 & 36.7428 \\
+		sqrtfreq.csv & 20 & 38.6697 & 1.3833 & 0.7085 & 17.5864 \\
 		\hline
-		sqrtfreq.csv & 60 & 34.1694 & -0.4514 & 0.7720 & 55.8145 \\
+		sqrtfreq.csv & 40 & 35.7520 & 1.1784 & 0.7392 & 38.6588 \\
 		\hline
-		log2freq.csv & 20 & 95.4702 & 0.1650 & 0.6642 & 22.1140 \\
+		sqrtfreq.csv & 60 & 34.1694 & 0.9822 & 0.7720 & 55.6245 \\
 		\hline
-		log2freq.csv & 40 & 87.3913 & -1.3165 & 0.7186 & 37.1511 \\
+		log2freq.csv & 20 & 95.4702 & 1.5057 & 0.6642 & 22.0090 \\
 		\hline
-		log2freq.csv & 60 & 82.7787 & -0.7854 & 0.7697 & 57.1771 \\
+		log2freq.csv & 40 & 87.3913 & 1.2731 & 0.7186 & 38.8927 \\
 		\hline
+		log2freq.csv & 60 & 82.7787 & 1.0275 & 0.7697 & 58.7918 \\
 		\hline
 	\end{tabular}
 	\caption{ Cluster validity measures for k-means with SSE criterion function }
@@ -32,25 +33,25 @@
 		\hline
 		\multicolumn{6}{| c | } { I2 Results } \\
 		\hline
-		Input File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\
-		freq.csv & 20 & 669.9474 & 0.6616 & 0.8002 & 17.8696 \\
+		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
 		\hline
-		freq.csv & 40 & 704.5980 & 0.2237 & 0.8272 & 36.3353 \\
+		freq.csv & 20 & 669.9474 & 0.9977 & 0.8002 & 17.5807 \\
 		\hline
-		freq.csv & 60 & 723.7176 & 0.1432 & 0.8258 & 53.4411 \\
+		freq.csv & 40 & 704.5980 & 0.8580 & 0.8272 & 38.3639 \\
 		\hline
-		sqrtfreq.csv & 20 & 484.0785 & 0.5462 & 0.8146 & 20.1462 \\
+		freq.csv & 60 & 723.7176 & 0.7808 & 0.8258 & 52.6757 \\
 		\hline
-		sqrtfreq.csv & 40 & 506.6912 & 0.2524 & 0.8655 & 36.4538 \\
+		sqrtfreq.csv & 20 & 484.0785 & 0.9086 & 0.8146 & 20.0296 \\
 		\hline
-		sqrtfreq.csv & 60 & 519.1837 & -0.0548 & 0.8768 & 53.6857 \\
+		sqrtfreq.csv & 40 & 506.6912 & 0.6747 & 0.8655 & 38.2462 \\
 		\hline
-		log2freq.csv & 20 & 738.0443 & 0.5021 & 0.8126 & 18.9117 \\
+		sqrtfreq.csv & 60 & 519.1837 & 0.5753 & 0.8768 & 55.0561 \\
 		\hline
-		log2freq.csv & 40 & 773.4854 & 0.0419 & 0.8583 & 35.8266 \\
+		log2freq.csv & 20 & 738.0443 & 0.9293 & 0.8126 & 19.1617 \\
 		\hline
-		log2freq.csv & 60 & 795.0895 & 0.1176 & 0.8651 & 53.8375 \\
+		log2freq.csv & 40 & 773.4854 & 0.7204 & 0.8583 & 38.5535 \\
 		\hline
+		log2freq.csv & 60 & 795.0895 & 0.6331 & 0.8651 & 53.3512 \\
 		\hline
 	\end{tabular}
 	\caption{ Cluster validity measures for k-means with I2 criterion function }
@@ -61,25 +62,25 @@
 		\hline
 		\multicolumn{6}{| c | } { E1 Results } \\
 		\hline
-		Input File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\
-		freq.csv & 20 & 4514.7147 & 0.8672 & 0.7643 & 21.5627 \\
+		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
 		\hline
-		freq.csv & 40 & 4244.3803 & 0.3521 & 0.8094 & 38.8994 \\
+		freq.csv & 20 & 4514.7147 & 1.1003 & 0.7643 & 21.5807 \\
 		\hline
-		freq.csv & 60 & 4121.8179 & 0.2448 & 0.8106 & 57.7033 \\
+		freq.csv & 40 & 4244.3803 & 0.8940 & 0.8094 & 40.4636 \\
 		\hline
-		sqrtfreq.csv & 20 & 5058.4326 & 0.6522 & 0.8062 & 22.4009 \\
+		freq.csv & 60 & 4121.8179 & 0.8441 & 0.8106 & 57.0262 \\
 		\hline
-		sqrtfreq.csv & 40 & 4804.7579 & 0.4586 & 0.8468 & 41.5751 \\
+		sqrtfreq.csv & 20 & 5058.4326 & 0.9093 & 0.8062 & 21.0524 \\
 		\hline
-		sqrtfreq.csv & 60 & 4669.4423 & 0.2177 & 0.8494 & 56.7851 \\
+		sqrtfreq.csv & 40 & 4804.7579 & 0.7090 & 0.8468 & 40.6457 \\
 		\hline
-		log2freq.csv & 20 & 4715.8526 & 0.5752 & 0.7957 & 21.7229 \\
+		sqrtfreq.csv & 60 & 4669.4423 & 0.6792 & 0.8494 & 56.5340 \\
 		\hline
-		log2freq.csv & 40 & 4472.3828 & 0.8169 & 0.8331 & 38.3532 \\
+		log2freq.csv & 20 & 4715.8526 & 0.9704 & 0.7957 & 23.6612 \\
 		\hline
-		log2freq.csv & 60 & 4347.7194 & 0.2554 & 0.8487 & 56.8690 \\
+		log2freq.csv & 40 & 4472.3828 & 0.8169 & 0.8331 & 47.4706 \\
 		\hline
+		log2freq.csv & 60 & 4347.7194 & 0.7279 & 0.8487 & 56.1450 \\
 		\hline
 	\end{tabular}
 	\caption{ Cluster validity measures for k-means with E1 criterion function }
