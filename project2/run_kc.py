@@ -44,7 +44,53 @@ for crit in crit_funcs:
             output_time.append(time)
             #print "./kcluster" + " " + infile + " " + crit + " " + classname + " " + str(clusters) + " " + str(num_trials) + " " + outfile + "\n"
 
+print '\\begin{figure}[h]'
+print '\t\\begin{tabular}{| r | r | r | r | r | r | }'
+print '\t\t\\hline'
+print '\t\t\\multicolumn{6}{| c | } { SSE Results } \\\\'
+print '\t\t\\hline'
+print '\t\tInput File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
 for i in range(0,len(output_obj_func)):
-    print '{} {} {:d} {} {} {} {}\n'.format(output_crit_funcs[i], output_infile[i], output_num_clusters[i], \
-            output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
+    if (output_crit_funcs[i] == "SSE"):
+        print '\t\t{} & {:d} & {} & {} & {} & {} \\\\'.format(output_infile[i], output_num_clusters[i], \
+                output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
+        print '\t\t\\hline'
+print '\t\t\\hline'
+print '\t\\end{tabular}'
+print '\t\\caption{ Cluster validity measures for k-means with SSE criterion function }'
+print '\t\\label{fig:SSE}'
+print '\\end{figure}'
 
+print '\\begin{figure}[h]'
+print '\t\\begin{tabular}{| r | r | r | r | r | r | }'
+print '\t\t\\hline'
+print '\t\t\\multicolumn{6}{| c | } { I2 Results } \\\\'
+print '\t\t\\hline'
+print '\t\tInput File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+for i in range(0,len(output_obj_func)):
+    if (output_crit_funcs[i] == "I2"):
+        print '\t\t{} & {:d} & {} & {} & {} & {} \\\\'.format(output_infile[i], output_num_clusters[i], \
+                output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
+        print '\t\t\\hline'
+print '\t\t\\hline'
+print '\t\\end{tabular}'
+print '\t\\caption{ Cluster validity measures for k-means with I2 criterion function }'
+print '\t\\label{fig:I2}'
+print '\\end{figure}'
+
+print '\\begin{figure}[h]'
+print '\t\\begin{tabular}{| r | r | r | r | r | r | }'
+print '\t\t\\hline'
+print '\t\t\\multicolumn{6}{| c | } { E1 Results } \\\\'
+print '\t\t\\hline'
+print '\t\tInput File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+for i in range(0,len(output_obj_func)):
+    if (output_crit_funcs[i] == "E1"):
+        print '\t\t{} & {:d} & {} & {} & {} & {} \\\\'.format(output_infile[i], output_num_clusters[i], \
+                output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
+        print '\t\t\\hline'
+print '\t\t\\hline'
+print '\t\\end{tabular}'
+print '\t\\caption{ Cluster validity measures for k-means with E1 criterion function }'
+print '\t\\label{fig:E1}'
+print '\\end{figure}'
