@@ -99,6 +99,9 @@ typedef struct kc_state {
   /* Array of cluster sizes */
   int * cluster_sizes;
 
+  /* Array of cluster sizes for optimal solution */
+  int * opt_cluster_sizes;
+
   /* Number of clusters */
   int num_clusters;
 
@@ -819,6 +822,7 @@ void kc_state_set(
   state->centroid_norms = malloc( state->num_clusters * sizeof(*state->centroid_norms) );
   state->centroid_gc_dot = malloc( state->num_clusters * sizeof(*state->centroid_gc_dot) );
   state->cluster_sizes = calloc( state->num_clusters, sizeof(*state->cluster_sizes) );
+  state->opt_cluster_sizes = calloc( state->num_clusters, sizeof(*state->opt_cluster_sizes) );
   state->updates = 0;
   state->opt_obj = -1;
   state->iter = 0;
@@ -869,6 +873,7 @@ void kc_state_free(
   free(state->centroid_norms);
   free(state->global_centroid);
   free(state->cluster_sizes);
+  free(state->opt_cluster_sizes);
   free(state);
 }
 
@@ -961,6 +966,7 @@ void kc_kcluster(
         state->opt_obj = obj;
 
         memcpy(state->opt_clusters, state->clusters, state->data->num_rows * sizeof(*state->opt_clusters));
+        memcpy(state->opt_cluster_sizes, state->cluster_sizes, state->num_clusters * sizeof(*state->opt_cluster_sizes));
       }
     }
     else if (state->opt == 1 ) {     /* Objective function is being maximized */
@@ -968,6 +974,7 @@ void kc_kcluster(
         state->opt_obj = obj;
 
         memcpy(state->opt_clusters, state->clusters, state->data->num_rows * sizeof(*state->opt_clusters));
+        memcpy(state->opt_cluster_sizes, state->cluster_sizes, state->num_clusters * sizeof(*state->opt_cluster_sizes));
       }
     }
 
@@ -997,7 +1004,7 @@ void kc_fill_scaled_conf_mat(
 
   for (int i=0; i<state->num_clusters; i++) {
     for (int j=0; j<num_labels; j++) {
-      conf_mat[ j + i * num_labels ] = conf_mat[ j + i * num_labels ] / state->cluster_sizes[i];
+      conf_mat[ j + i * num_labels ] = conf_mat[ j + i * num_labels ] / state->opt_cluster_sizes[i];
     }
   }
 }
@@ -1027,7 +1034,7 @@ void kc_output_results(
         cluster_entropy -= conf_mat[ j + i * num_labels ] * log2( conf_mat[ j + i * num_labels ] );
       }
     }
-    entropy += cluster_entropy * state->cluster_sizes[i] / state->data->num_rows;     /* Add scaled entropy for cluster */
+    entropy += cluster_entropy * state->opt_cluster_sizes[i] / state->data->num_rows;     /* Add scaled entropy for cluster */
   }
 
   for (int i=0; i<state->num_clusters; i++) {
@@ -1037,7 +1044,7 @@ void kc_output_results(
         cluster_purity = conf_mat[ j + i * num_labels ];
       }
     }
-    purity += cluster_purity * state->cluster_sizes[i] / state->data->num_rows;       /* Add scaled purity for cluster */
+    purity += cluster_purity * state->opt_cluster_sizes[i] / state->data->num_rows;       /* Add scaled purity for cluster */
   }
 
   free(conf_mat);

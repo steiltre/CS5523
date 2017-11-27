@@ -60,6 +60,98 @@
 
 \section{Results}
 
+\begin{figure}[h]
+  \centering
+	\begin{tabular}{| r | r | r | r | r | r | }
+		\hline
+		\multicolumn{6}{| c | } { SSE Results } \\
+		\hline
+		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        \hline
+		freq.csv & 20 & 84.2379 & -0.2167 & 0.6625 & 21.5783 \\
+		\hline
+		freq.csv & 40 & 76.4664 & -0.3468 & 0.7374 & 37.4696 \\
+		\hline
+		freq.csv & 60 & 71.9207 & -1.1809 & 0.7507 & 55.9527 \\
+		\hline
+		sqrtfreq.csv & 20 & 38.6697 & 0.1822 & 0.7085 & 18.0948 \\
+		\hline
+		sqrtfreq.csv & 40 & 35.7520 & -0.2757 & 0.7392 & 36.7428 \\
+		\hline
+		sqrtfreq.csv & 60 & 34.1694 & -0.4514 & 0.7720 & 55.8145 \\
+		\hline
+		log2freq.csv & 20 & 95.4702 & 0.1650 & 0.6642 & 22.1140 \\
+		\hline
+		log2freq.csv & 40 & 87.3913 & -1.3165 & 0.7186 & 37.1511 \\
+		\hline
+		log2freq.csv & 60 & 82.7787 & -0.7854 & 0.7697 & 57.1771 \\
+		\hline
+	\end{tabular}
+	\caption{ Cluster validity measures for k-means with SSE criterion function }
+	\label{fig:SSE}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+	\begin{tabular}{| r | r | r | r | r | r | }
+		\hline
+		\multicolumn{6}{| c | } { I2 Results } \\
+		\hline
+		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        \hline
+		freq.csv & 20 & 669.9474 & 0.6616 & 0.8002 & 17.8696 \\
+		\hline
+		freq.csv & 40 & 704.5980 & 0.2237 & 0.8272 & 36.3353 \\
+		\hline
+		freq.csv & 60 & 723.7176 & 0.1432 & 0.8258 & 53.4411 \\
+		\hline
+		sqrtfreq.csv & 20 & 484.0785 & 0.5462 & 0.8146 & 20.1462 \\
+		\hline
+		sqrtfreq.csv & 40 & 506.6912 & 0.2524 & 0.8655 & 36.4538 \\
+		\hline
+		sqrtfreq.csv & 60 & 519.1837 & -0.0548 & 0.8768 & 53.6857 \\
+		\hline
+		log2freq.csv & 20 & 738.0443 & 0.5021 & 0.8126 & 18.9117 \\
+		\hline
+		log2freq.csv & 40 & 773.4854 & 0.0419 & 0.8583 & 35.8266 \\
+		\hline
+		log2freq.csv & 60 & 795.0895 & 0.1176 & 0.8651 & 53.8375 \\
+		\hline
+	\end{tabular}
+	\caption{ Cluster validity measures for k-means with I2 criterion function }
+	\label{fig:I2}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+	\begin{tabular}{| r | r | r | r | r | r | }
+		\hline
+		\multicolumn{6}{| c | } { E1 Results } \\
+		\hline
+		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        \hline
+		freq.csv & 20 & 4514.7147 & 0.8672 & 0.7643 & 21.5627 \\
+		\hline
+		freq.csv & 40 & 4244.3803 & 0.3521 & 0.8094 & 38.8994 \\
+		\hline
+		freq.csv & 60 & 4121.8179 & 0.2448 & 0.8106 & 57.7033 \\
+		\hline
+		sqrtfreq.csv & 20 & 5058.4326 & 0.6522 & 0.8062 & 22.4009 \\
+		\hline
+		sqrtfreq.csv & 40 & 4804.7579 & 0.4586 & 0.8468 & 41.5751 \\
+		\hline
+		sqrtfreq.csv & 60 & 4669.4423 & 0.2177 & 0.8494 & 56.7851 \\
+		\hline
+		log2freq.csv & 20 & 4715.8526 & 0.5752 & 0.7957 & 21.7229 \\
+		\hline
+		log2freq.csv & 40 & 4472.3828 & 0.8169 & 0.8331 & 38.3532 \\
+		\hline
+		log2freq.csv & 60 & 4347.7194 & 0.2554 & 0.8487 & 56.8690 \\
+		\hline
+	\end{tabular}
+	\caption{ Cluster validity measures for k-means with E1 criterion function }
+	\label{fig:E1}
+\end{figure}
 
 \end{document}
 

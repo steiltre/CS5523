@@ -5,13 +5,13 @@ import os
 
 print os.getcwd()
 
-ifnames = ["./freq.csv", "./sqrtfreq.csv", "./log2freq.csv"]
-#ifnames = ["./2d_test.csv"]
-classname = "./reuters21578.class"
-#classname = "./2d_test.class"
+#ifnames = ["./freq.csv", "./sqrtfreq.csv", "./log2freq.csv"]
+ifnames = ["./2d_test.csv"]
+#classname = "./reuters21578.class"
+classname = "./2d_test.class"
 crit_funcs = ["SSE", "I2", "E1"]
-num_clusters = [20, 40, 60]
-#num_clusters = [2, 3]
+#num_clusters = [20, 40, 60]
+num_clusters = [2, 3]
 num_trials = 20
 outfile = "./test.csv"
 
@@ -49,13 +49,13 @@ print '\t\\begin{tabular}{| r | r | r | r | r | r | }'
 print '\t\t\\hline'
 print '\t\t\\multicolumn{6}{| c | } { SSE Results } \\\\'
 print '\t\t\\hline'
-print '\t\tInput File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+print '\t\tInput File & \\# Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+print '\t\t\\hline'
 for i in range(0,len(output_obj_func)):
     if (output_crit_funcs[i] == "SSE"):
         print '\t\t{} & {:d} & {} & {} & {} & {} \\\\'.format(output_infile[i], output_num_clusters[i], \
                 output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
         print '\t\t\\hline'
-print '\t\t\\hline'
 print '\t\\end{tabular}'
 print '\t\\caption{ Cluster validity measures for k-means with SSE criterion function }'
 print '\t\\label{fig:SSE}'
@@ -66,13 +66,13 @@ print '\t\\begin{tabular}{| r | r | r | r | r | r | }'
 print '\t\t\\hline'
 print '\t\t\\multicolumn{6}{| c | } { I2 Results } \\\\'
 print '\t\t\\hline'
-print '\t\tInput File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+print '\t\tInput File & \\# Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+print '\t\t\\hline'
 for i in range(0,len(output_obj_func)):
     if (output_crit_funcs[i] == "I2"):
         print '\t\t{} & {:d} & {} & {} & {} & {} \\\\'.format(output_infile[i], output_num_clusters[i], \
                 output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
         print '\t\t\\hline'
-print '\t\t\\hline'
 print '\t\\end{tabular}'
 print '\t\\caption{ Cluster validity measures for k-means with I2 criterion function }'
 print '\t\\label{fig:I2}'
@@ -83,13 +83,13 @@ print '\t\\begin{tabular}{| r | r | r | r | r | r | }'
 print '\t\t\\hline'
 print '\t\t\\multicolumn{6}{| c | } { E1 Results } \\\\'
 print '\t\t\\hline'
-print '\t\tInput File & # Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+print '\t\tInput File & \\# Clusters & Objective Function & Entropy & Purity & Time (sec) \\\\'
+print '\t\t\\hline'
 for i in range(0,len(output_obj_func)):
     if (output_crit_funcs[i] == "E1"):
         print '\t\t{} & {:d} & {} & {} & {} & {} \\\\'.format(output_infile[i], output_num_clusters[i], \
                 output_obj_func[i], output_entropy[i], output_purity[i], output_time[i])
         print '\t\t\\hline'
-print '\t\t\\hline'
 print '\t\\end{tabular}'
 print '\t\\caption{ Cluster validity measures for k-means with E1 criterion function }'
 print '\t\\label{fig:E1}'
