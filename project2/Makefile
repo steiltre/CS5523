@@ -22,8 +22,8 @@ kcluster : kcluster.c
 kcluster_dbg : kcluster.c
 	$(CC) -o kcluster kcluster.c $(DBGFLAGS)
 
-preprocess : freq.csv sqrtfreq.csv log2freq.csv
-	./preprocess.py
+preprocess :
+	python preprocess.py
 
 clean:
 	rm kcluster

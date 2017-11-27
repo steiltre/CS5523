@@ -930,11 +930,11 @@ void kc_single_clustering(
     }
     state->iter++;
 
-    printf( "Objective: %0.04f\n", (*state->obj_func)(state) );
+    //printf( "Objective: %0.04f\n", (*state->obj_func)(state) );
 
   } while ((state->updates >= 0.1 * state->data->num_rows) & (state->iter < 30));
 
-  printf("Iterations: %d\n", state->iter);
+  //printf("Iterations: %d\n", state->iter);
 
 }
 
@@ -971,7 +971,7 @@ void kc_kcluster(
       }
     }
 
-    printf("Trial %d: Objective function: %0.04f\n", i, obj);
+    //printf("Trial %d: Objective function: %0.04f\n", i, obj);
   }
 }
 
@@ -1061,7 +1061,7 @@ kc_csr * kc_read_ifile(
   /* Open file */
   FILE * fin;
   if((fin = fopen(fname, "r")) == NULL) {
-    fprintf(stderr, "unable to open '%s' for reading.\n", fname);
+    //fprintf(stderr, "unable to open '%s' for reading.\n", fname);
     exit(EXIT_FAILURE);
   }
 
@@ -1290,9 +1290,9 @@ int main(
   kc_write_clusters_file( ofname, state->clusters, article_IDs, state->data->num_rows );
 
   printf( "Clustering time: %0.04f\n", total_time );
-  printf( "Dot product time: %0.04f\n", dot_prod_time );
-  printf( "Dense vector addition time: %0.04f\n", add_dense_time );
-  printf( "Sparse dense vector addition time: %0.04f\n", add_sparse_dense_time );
+  //printf( "Dot product time: %0.04f\n", dot_prod_time );
+  //printf( "Dense vector addition time: %0.04f\n", add_dense_time );
+  //printf( "Sparse dense vector addition time: %0.04f\n", add_sparse_dense_time );
 
   free(article_IDs);
   free(class);
