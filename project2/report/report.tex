@@ -56,102 +56,282 @@
 
 
 \begin{document}
-\maketitle
+    \maketitle
 
-\section{Results}
+    \section{Implementation}
+        \subsection{Preprocessing}
+        Preprocessing was done using Python with the BeautifulSoup4 module to parse SGML files. First, all articles were read to count the occurrences of topics. All
+        articles that contained no topic, multiple topics, or no body were skipped. Following this, the 20 topics with the highest frequencies were
+        kept. Ties were not explicitly handled, so there may be some randomness in the topics that are chosen.
 
-\begin{figure}[h]
-  \centering
-	\begin{tabular}{| r | r | r | r | r | r | }
-		\hline
-		\multicolumn{6}{| c | } { SSE Results } \\
-		\hline
-		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        After finding the most frequent topics, the dataset was read again and articles containing a nonempty body and a single topic matching one of
+        the frequent topics processed to remove non-ascii characters, replace non-alphanumeric characters with spaces, change all letters to lower
+        case, and then create tokens from each word by using a Porter stemmer. The Porter stemmer used was found at
+        https://tartarus.org/martin/PorterStemmer/. From each article, the unique tokens were then added to a dictionary to count the number of
+        articles containing each token.
+
+        When all tokens were counted, those that occurred in less than 5 articles were removed. This gives the full set of tokens used to represent
+        articles. Following this, each article with a nonempty body and single topic matching a frequent topic were read again to count the
+        occurrences of the tokens occurring in at least 5 unique articles. These occurrences were then stored (along with their square root and log2
+        versions) in .csv files for use in clustering.
+
+        \subsection{Clustering}
+        We were given the SSE, I2, and E1 objective functions to use for clustering. For SSE, we seek to minimize
+        \begin{equation}
+          SSE = \sum_{i=1}^k \sum_{x \in C_i} dist(c_i, x)^2
+          \label{eq:SSE}
+        \end{equation}
+        For I2, we seek to maximize
+        \begin{equation}
+          \sum_{i=1}^k \sum_{x \in C_i} \cos (x, c_i) = \sum_{i=1}^k \|D_i\|
+          \label{eq:I2}
+        \end{equation}
+        where $D_i = \sum_{x \in C_i} x$. For E1, we seek to minimize
+        \begin{equation}
+          \sum_{i=1}^k n_i \cos (c_i, c) = \sum_{i=1}^k n_i \frac{D_i \cdot D}{\| D_i \|}
+          \label{eq:E1}
+        \end{equation}
+        where $n_i$ is the number of points in the $i$-th cluster and $D = \sum_{i=1}^K D_i$.
+
+        Looking at the objective functions, \eqref{eq:SSE} and \eqref{eq:I2} lend themselves nicely to an alternating least squares optimization using batch updates, that is assigning all
+        points to clusters in one step, and then updating centroids only after all points have been reassigned. This alternating least squares
+        approach does not work as well for \eqref{eq:E1} because the contribution of each cluster is weighted by the size of the cluster.
+
+        For the reason above, I decided to use incremental updates. Performing incremental updates requires an efficient way of determining the
+        appropriate cluster to move a point to and updating the appropriate centroids. This is done slightly differently for each criterion function
+        and requires making use of the sparsity of document vectors.
+
+        In the following, we will use $n$ to refer to the number of articles (or data points), $k$ for the number of clusters, and $d$ to be the number of dimensions used to represent
+        data points. We will use the term centroid to refer to $c_i$ and $D_i$ depending on the objective function being considered.
+
+        \subsubsection{I2 Incremental Updates}
+        Consider a point $x$ that is being moved from $C_i$ to $C_j$. In \eqref{eq:I2}, this move affects exactly two of the terms. We will look at
+        the term corresponding to $C_j$. The other term can be handled in a similar way.
+
+        The proposed move changes the term corresponding to $\| D_j \|$ into $\| D_j + x \|$. The point $x$ is sparse, but the centroid may be a dense
+        vector. Directly computing this norm would require $O(d)$ operations. We can improve this using the sparsity of $x$ and precomputing some
+        values. We can rewrite
+        \begin{align}
+          \| D_j + x \|^2 &= (D_j + x) \cdot (D_j + x) \nonumber \\
+          &= \| D_j \|^2 + 2 x \cdot D_j + \|x\|^2
+          \label{eq:norm_D_j}
+        \end{align}
+        In this expression, $\|x\|^2 = 1$ because of the normalization of our data, computing $\|D_j\|^2$ takes $O(d)$ time, and computing $x \cdot
+        D_j$ takes $O(nnz)$ time, where $nnz$ is the number of nonzero entries in $x$. This may seem no better than the $O(d)$ time above, but when
+        choosing the cluster to assign $x$ to, this computation must be done for every possible cluster assignment. Computing the change in the
+        objective function for these $k-1$ possible assignments then takes $O(k d)$ time in the naive way.
+
+        When using \eqref{eq:norm_D_j}, we notice that we need to compute $\|D_j + x\|$ for all possible values of $j$, but we only keep one of these
+        updates. By storing $\| D_j \|^2$ for all $j$, we can reduce the complexity of choosing the cluster for $x$ to $O(k \cdot nnz)$ because it
+        only requires a sparse dot product for each possible cluster assignment. After choosing the assignment for $x$, we can recompute the centroid
+        norms for the cluster $x$ moved from and the cluster $x$ moved into in $O(d)$ time. This reduces the overall complexity of reassigning $x$ to
+        $O( k \cdot nnz + d )$. This gives a total complexity of $O( I n \cdot (k \cdot nnz + d) )$ for a single pass of $k$-means, where $I$ is the
+        number of iterations necessary for convergence.
+
+        \subsubsection{E1 Incremental Updates}
+        For choosing the cluster to assign a point $x$ to with the E1 criterion function, the process is very similar to that of I2. We can store
+        $\|D_i\|^2$ to improve the speed of computing $\| D_i + x \|^2$ as before. The only addition is that we must now store $D_i \cdot D$ to reduce
+        the computation of $(D_i + x) \cdot D = D_i \cdot D + x \cdot D$ to another sparse dot product that takes $O(nnz)$ time.
+
+        \subsubsection{SSE Incremental Updates}
+        We will again consider the effect of moving a single point, $\tilde{x}$, from cluster $C_i$ to cluster $C_j$. We will only focus on the effect
+        of this move on the contribution from $C_j$ to the objective function, as the effect on $C_i$ is similar. We need to know how the contribution
+        from $C_j$ changed when $\tilde{x}$ was added to $C_j$. We will use $C_j$ and $c_j$ to refer to the cluster and centroid before adding
+        $\tilde{x}$, and $\tilde{C}_j$ and $\tilde{c}_j$ to refer to the cluster and centroid after adding $\tilde{x}$.
+
+        We can easily see
+        \begin{equation}
+          \tilde{c}_j = \frac{n_j}{n_j + 1} c_j + \frac{1}{n_j + 1} \tilde{x}
+          \label{eq:centroid_update}
+        \end{equation}
+
+        With a little work, it can be shown that
+        \begin{equation}
+          \sum_{x \in \tilde{C}_j} dist( \tilde{c}_j, x)^2 - \sum_{x \in C_j} dist( c_j, x )^2 = \frac{n_j}{n_j + 1} \| c_j \|^2 - 2
+          \frac{n_j}{n_j + 1} c_j \cdot \tilde{x} + \frac{n_j}{n_j + 1} \|\tilde{x}\|^2
+          \label{eq:update_sse}
+        \end{equation}
+        (see the Appendix).
+
+        \eqref{eq:update_sse} tells how the SSE from cluster $C_j$ changes after adding $\tilde{x}$. As in the case of the I2 and E1 criterion
+        functions, we have this update expressed as the norms of centroids before the update, a sparse dot product, and the norm of the point being
+        moved. By storing centroid norms as before, we can assign $\tilde{x}$ to a cluster in $O(k \cdot nnz + d)$. This again gives a complexity of
+        $O(I \cdot n \cdot (k \cdot nnz + d))$ for a single trial of $k$-means.
+
+        \subsubsection{Stopping Criteria}
+        To improve running times, clustering was stopped after only a small fraction of points were changing cluster assignments. Stopping when less
+        than 10\% of points change clusters seemed to affect the reported entropy and purity values by only a couple of hundredths while running
+        almost 10 times faster. This is the stopping criteria used in the code being turned in.
+
+        \subsubsection{Other Details}
+        The incremental algorithm requires the computation of many dot products. OpenMP was used to speed up these computations.
+
+        As was discussed in the forum, the project description discusses outputting the confusion matrix explicitly. I have added the option to add a
+        7th input parameter when running my code that gives the filename to save the confusion matrix. If a name is not explicitly provided, the
+        confusion matrix is saved as ``conf\_mat.mat''.
+
+        \subsection{Improvements}
+        There are many places my implementation can be improved. The first is in the preprocessing. No attempt was made at making the preprocessing
+        fast. In particular, the SGML files holding the dataset must be opened 3 times in order to count topic occurrences, create the set of usable
+        tokens, and create the vector representations of articles. The running time of preprocessing could be greatly improved by fixing this.
+
+        The second obvious improvement would be to fully implement the incremental update processes discussed above. As it is, finding the change in
+        the objective function for the proposed cluster uses the sparse dot product implementation above. This greatly improves the running time.
+        Calculating the change in the objective function from moving a point out of its current cluster is not handled in this way and explicitly
+        constructs the new centroids and computes the dot products in $O(d)$ time. This change was deemed low enough priority to skip because it does
+        not add to the computational complexity. It may however improve the observed running time.
+
+    \section{Results}
+
+    Figures \ref{fig:SSE}, \ref{fig:I2}, and \ref{fig:E1} give the results for each of the the criterion functions. Comparing the entropies of
+    clusterings obtained with each criterion function, we see I2 tends to perform the best, followed by E1, with SSE trailing behind significantly.
+    The same results hold for comparing purity values for the different criterion functions.
+
+    Comparing the three vector models, we see the square root of frequency tends to give the best values of entropy and purity, followed by the logarithm of
+    frequency, and then the frequency. Interestingly, this order does not hold when looking at objective functions.
+
+    The running times between all criterion functions tend to be similar. We see what appears to be rougly linear scaling in the number of clusters
+    used. From the complexity analysis, we had hoped to see less of an impact from the number of clusters. The number of iterations to reach
+    convergence did not appear to change dramatically with the number of clusters, so this scaling appears to be caused directly by the number of
+    clusters used.
+
+    \begin{figure}[h]
+      \centering
+      \begin{tabular}{| r | r | r | r | r | r | }
         \hline
-		freq.csv & 20 & 84.2379 & -0.2167 & 0.6625 & 21.5783 \\
-		\hline
-		freq.csv & 40 & 76.4664 & -0.3468 & 0.7374 & 37.4696 \\
-		\hline
-		freq.csv & 60 & 71.9207 & -1.1809 & 0.7507 & 55.9527 \\
-		\hline
-		sqrtfreq.csv & 20 & 38.6697 & 0.1822 & 0.7085 & 18.0948 \\
-		\hline
-		sqrtfreq.csv & 40 & 35.7520 & -0.2757 & 0.7392 & 36.7428 \\
-		\hline
-		sqrtfreq.csv & 60 & 34.1694 & -0.4514 & 0.7720 & 55.8145 \\
-		\hline
-		log2freq.csv & 20 & 95.4702 & 0.1650 & 0.6642 & 22.1140 \\
-		\hline
-		log2freq.csv & 40 & 87.3913 & -1.3165 & 0.7186 & 37.1511 \\
-		\hline
-		log2freq.csv & 60 & 82.7787 & -0.7854 & 0.7697 & 57.1771 \\
-		\hline
-	\end{tabular}
-	\caption{ Cluster validity measures for k-means with SSE criterion function }
-	\label{fig:SSE}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-	\begin{tabular}{| r | r | r | r | r | r | }
-		\hline
-		\multicolumn{6}{| c | } { I2 Results } \\
-		\hline
-		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        \multicolumn{6}{| c | } { SSE Results } \\
         \hline
-		freq.csv & 20 & 669.9474 & 0.6616 & 0.8002 & 17.8696 \\
-		\hline
-		freq.csv & 40 & 704.5980 & 0.2237 & 0.8272 & 36.3353 \\
-		\hline
-		freq.csv & 60 & 723.7176 & 0.1432 & 0.8258 & 53.4411 \\
-		\hline
-		sqrtfreq.csv & 20 & 484.0785 & 0.5462 & 0.8146 & 20.1462 \\
-		\hline
-		sqrtfreq.csv & 40 & 506.6912 & 0.2524 & 0.8655 & 36.4538 \\
-		\hline
-		sqrtfreq.csv & 60 & 519.1837 & -0.0548 & 0.8768 & 53.6857 \\
-		\hline
-		log2freq.csv & 20 & 738.0443 & 0.5021 & 0.8126 & 18.9117 \\
-		\hline
-		log2freq.csv & 40 & 773.4854 & 0.0419 & 0.8583 & 35.8266 \\
-		\hline
-		log2freq.csv & 60 & 795.0895 & 0.1176 & 0.8651 & 53.8375 \\
-		\hline
-	\end{tabular}
-	\caption{ Cluster validity measures for k-means with I2 criterion function }
-	\label{fig:I2}
-\end{figure}
-
-\begin{figure}[h]
-  \centering
-	\begin{tabular}{| r | r | r | r | r | r | }
-		\hline
-		\multicolumn{6}{| c | } { E1 Results } \\
-		\hline
-		Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
         \hline
-		freq.csv & 20 & 4514.7147 & 0.8672 & 0.7643 & 21.5627 \\
-		\hline
-		freq.csv & 40 & 4244.3803 & 0.3521 & 0.8094 & 38.8994 \\
-		\hline
-		freq.csv & 60 & 4121.8179 & 0.2448 & 0.8106 & 57.7033 \\
-		\hline
-		sqrtfreq.csv & 20 & 5058.4326 & 0.6522 & 0.8062 & 22.4009 \\
-		\hline
-		sqrtfreq.csv & 40 & 4804.7579 & 0.4586 & 0.8468 & 41.5751 \\
-		\hline
-		sqrtfreq.csv & 60 & 4669.4423 & 0.2177 & 0.8494 & 56.7851 \\
-		\hline
-		log2freq.csv & 20 & 4715.8526 & 0.5752 & 0.7957 & 21.7229 \\
-		\hline
-		log2freq.csv & 40 & 4472.3828 & 0.8169 & 0.8331 & 38.3532 \\
-		\hline
-		log2freq.csv & 60 & 4347.7194 & 0.2554 & 0.8487 & 56.8690 \\
-		\hline
-	\end{tabular}
-	\caption{ Cluster validity measures for k-means with E1 criterion function }
-	\label{fig:E1}
-\end{figure}
+        freq.csv & 20 & 84.2379 & 1.5621 & 0.6625 & 29.4926 \\
+        \hline
+        freq.csv & 40 & 76.4664 & 1.2657 & 0.7374 & 39.1060 \\
+        \hline
+        freq.csv & 60 & 71.9207 & 1.1741 & 0.7507 & 54.8797 \\
+        \hline
+        sqrtfreq.csv & 20 & 38.6697 & 1.3833 & 0.7085 & 17.5864 \\
+        \hline
+        sqrtfreq.csv & 40 & 35.7520 & 1.1784 & 0.7392 & 38.6588 \\
+        \hline
+        sqrtfreq.csv & 60 & 34.1694 & 0.9822 & 0.7720 & 55.6245 \\
+        \hline
+        log2freq.csv & 20 & 95.4702 & 1.5057 & 0.6642 & 22.0090 \\
+        \hline
+        log2freq.csv & 40 & 87.3913 & 1.2731 & 0.7186 & 38.8927 \\
+        \hline
+        log2freq.csv & 60 & 82.7787 & 1.0275 & 0.7697 & 58.7918 \\
+        \hline
+      \end{tabular}
+      \caption{ Cluster validity measures for k-means with SSE criterion function }
+      \label{fig:SSE}
+    \end{figure}
+
+    \begin{figure}[h]
+      \centering
+      \begin{tabular}{| r | r | r | r | r | r | }
+        \hline
+        \multicolumn{6}{| c | } { I2 Results } \\
+        \hline
+        Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        \hline
+        freq.csv & 20 & 669.9474 & 0.9977 & 0.8002 & 17.5807 \\
+        \hline
+        freq.csv & 40 & 704.5980 & 0.8580 & 0.8272 & 38.3639 \\
+        \hline
+        freq.csv & 60 & 723.7176 & 0.7808 & 0.8258 & 52.6757 \\
+        \hline
+        sqrtfreq.csv & 20 & 484.0785 & 0.9086 & 0.8146 & 20.0296 \\
+        \hline
+        sqrtfreq.csv & 40 & 506.6912 & 0.6747 & 0.8655 & 38.2462 \\
+        \hline
+        sqrtfreq.csv & 60 & 519.1837 & 0.5753 & 0.8768 & 55.0561 \\
+        \hline
+        log2freq.csv & 20 & 738.0443 & 0.9293 & 0.8126 & 19.1617 \\
+        \hline
+        log2freq.csv & 40 & 773.4854 & 0.7204 & 0.8583 & 38.5535 \\
+        \hline
+        log2freq.csv & 60 & 795.0895 & 0.6331 & 0.8651 & 53.3512 \\
+        \hline
+      \end{tabular}
+      \caption{ Cluster validity measures for k-means with I2 criterion function }
+      \label{fig:I2}
+    \end{figure}
+
+    \begin{figure}[h]
+      \centering
+      \begin{tabular}{| r | r | r | r | r | r | }
+        \hline
+        \multicolumn{6}{| c | } { E1 Results } \\
+        \hline
+        Input File & \# Clusters & Objective Function & Entropy & Purity & Time (sec) \\
+        \hline
+        freq.csv & 20 & 4514.7147 & 1.1003 & 0.7643 & 21.5807 \\
+        \hline
+        freq.csv & 40 & 4244.3803 & 0.8940 & 0.8094 & 40.4636 \\
+        \hline
+        freq.csv & 60 & 4121.8179 & 0.8441 & 0.8106 & 57.0262 \\
+        \hline
+        sqrtfreq.csv & 20 & 5058.4326 & 0.9093 & 0.8062 & 21.0524 \\
+        \hline
+        sqrtfreq.csv & 40 & 4804.7579 & 0.7090 & 0.8468 & 40.6457 \\
+        \hline
+        sqrtfreq.csv & 60 & 4669.4423 & 0.6792 & 0.8494 & 56.5340 \\
+        \hline
+        log2freq.csv & 20 & 4715.8526 & 0.9704 & 0.7957 & 23.6612 \\
+        \hline
+        log2freq.csv & 40 & 4472.3828 & 0.8169 & 0.8331 & 47.4706 \\
+        \hline
+        log2freq.csv & 60 & 4347.7194 & 0.7279 & 0.8487 & 56.1450 \\
+        \hline
+      \end{tabular}
+      \caption{ Cluster validity measures for k-means with E1 criterion function }
+      \label{fig:E1}
+    \end{figure}
+
+    \section{Appendix}
+    Here, we will justify the claim that
+    \begin{equation*}
+        \sum_{x \in \tilde{C}_j} dist( \tilde{c}_j, x)^2 - \sum_{x \in C_j} dist( c_j, x )^2 = \frac{n_j}{n_j + 1} \| c_j \|^2 - 2
+        \frac{n_j}{n_j + 1} c_j \cdot \tilde{x} + \frac{n_j}{n_j + 1} \|\tilde{x}\|^2
+    \end{equation*}
+
+    First, consider a single $x \in \tilde{C}_j$. We have
+    \begin{align}
+      dist( \tilde{c}_j, x)^2 &= (\tilde{c}_j - x) \cdot (\tilde{c}_j - x) \nonumber \\
+      &= \left( \frac{n_j}{n_j + 1} c_j + \frac{1}{n_j + 1} \tilde{x} - x \right) \cdot \left( \frac{n_j}{n_j + 1} c_j + \frac{1}{n_j + 1} \tilde{x} -
+      x \right) \nonumber \\
+      &= \left( (c_j - x) + \frac{1}{n_j + 1} (\tilde{x} - c_j) \right) \cdot \left( ( c_j - x) + \frac{1}{n_j + 1} (\tilde{x} - c_j) \right) \nonumber
+      \\
+      &= dist (c_j, x)^2 + \frac{2}{n_j + 1} (\tilde{x} - c_j) \cdot (c_j - x) + \frac{1}{(n_j + 1)^2} dist (\tilde{x}, c_j)^2
+      \label{eq:single_point_dist}
+    \end{align}
+
+    Summing over all $x \in \tilde{C}_j$, we get
+    \begin{align}
+      \sum_{x \in \tilde{C}_j} dist( \tilde{c}_j, x )^2 &= \sum_{x \in \tilde{C}_j} dist(c_j, x)^2 + 2 (\tilde{x} - c_j) \cdot (c_j - \tilde{c}_j) +
+      \frac{1}{n_j + 1} dist( \tilde{x}, c_j )^2 \nonumber \\
+      &= \sum_{x \in C_j} dist(c_j, x)^2 + dist(c_j, \tilde{x})^2 + 2 (\tilde{x} - c_j) \cdot (c_j - \tilde{c}_j) +
+      \frac{1}{n_j + 1} dist( \tilde{x}, c_j )^2 \nonumber \\
+      &= \sum_{x \in C_j} dist(c_j, x)^2 + 2(\tilde{x} - c_j) \cdot (c_j - \tilde{c}_j) + \frac{n_j + 2}{n_j + 1} (\tilde{x} - c_j) \cdot
+      (\tilde{x} - c_j)
+      \label{eq:sum_distances}
+    \end{align}
+    where we have used the that $|\tilde{C}_j| = n_j + 1$, $\tilde{c_j} = \frac{1}{n_j + 1} \sum_{x \in \tilde{C}_j} x$, and explicitly pulled the
+    term corresponding to $\tilde{x}$ out of the sum.
+
+    Now we look at the last two terms in \eqref{eq:sum_distances}.
+    \begin{align}
+      2 (\tilde{x} - c_j) &\cdot (c_j - \tilde{c}_j ) + \frac{n_j + 2}{n_j + 1} (\tilde{x} - c_j) \cdot (\tilde{x} - c_j) \nonumber \\
+      &= 2 \tilde{x} \cdot c_j - 2 \tilde{x} \cdot \tilde{c}_j - 2 \|c_j\|^2 + 2 c_j \cdot \tilde{c}_j + \frac{n_j + 2}{n_j + 1} \|\tilde{x}\|^2 - 2
+      \frac{n_j + 2}{n_j + 1} \tilde{x} \cdot c_j + \frac{n_j + 2}{n_j + 1} \|c_j\|^2 \nonumber \\
+      &= 2 \tilde{x} \cdot c_j - 2 \frac{n_j}{n_j + 1} \tilde{x} \cdot c_j - \frac{2}{n_j + 1} \|\tilde{x}\|^2 - 2 \|c_j\|^2 + \frac{2 n_j}{n_j + 1}
+      \|c_j\|^2 + \frac{2}{n_j + 1} \tilde{x} \cdot c_j \nonumber \\
+      &\quad + \frac{n_j + 2}{n_j + 1} \| \tilde{x} \|^2 - 2 \frac{n_j + 2}{n_j + 1} \tilde{x} \cdot c_j + \frac{n_j+2}{n_j+1} \|c_j\|^2 \nonumber \\
+      &= \frac{n_j}{n_j + 1} \| c_j \|^2 - 2 \frac{n_j}{n_j + 1} \tilde{x} \cdot c_j + \frac{n_j}{n_j + 1} \|\tilde{x}\|^2
+      \label{eq:sum_distances2}
+    \end{align}
+
+    Inserting \eqref{eq:sum_distances2} into \eqref{eq:sum_distances} gives the desired result.
 
 \end{document}
 

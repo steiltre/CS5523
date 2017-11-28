@@ -379,17 +379,11 @@ void kc_update_sse(
   if (state->clusters[pt_ID] != -1) {       /* Only calculate change if point is leaving a valid cluster */
     /* Define scaling factors for vectors */
     scale_cent = ( (double) state->cluster_sizes[ state->clusters[pt_ID] ] ) / ( state->cluster_sizes[ state->clusters[pt_ID] ] - 1 );
-    scale_pt = ( (double) -1 ) / ( state->cluster_sizes[ state->clusters[pt_ID] ] - 1 );
 
-    kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, scale_cent,
-        state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, scale_pt, new_cent1);
+    double dot_prod = kc_dot_prod_den_sp( state->centroids + state->clusters[pt_ID]*state->dim, state->data->row_ind + state->data->row_ptr[pt_ID],
+        state->data->val + state->data->row_ptr[pt_ID], sparse_size );
 
-    kc_vec_add( state->centroids + (state->clusters[pt_ID] * state->dim), 1, new_cent1, -1, state->dim, diff_cents);
-    kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, 1,
-        state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, -1, diff_cent_pt);
-    /* Set change in objective function to be value from moving current point out of current cluster */
-    change_obj = 2 * kc_dot_prod( diff_cents, diff_cent_pt, state->dim ) +
-      (2 - state->cluster_sizes[ state->clusters[pt_ID] ]) / ((double) state->cluster_sizes[ state->clusters[pt_ID] ] - 1) * kc_dot_prod(diff_cent_pt, diff_cent_pt, state->dim);
+    change_obj = scale_cent * (-1*state->centroid_norms[ state->clusters[pt_ID] ] + 2 * dot_prod - state->data_norms[pt_ID]);
   }
   else {
     change_obj = 0;
@@ -416,7 +410,12 @@ void kc_update_sse(
   /* Update values */
   if (curr_best_cluster != state->clusters[pt_ID]) {
     if (state->clusters[pt_ID] != -1) {        /* Only remove point from old cluster if previously assigned to a cluster */
-      memcpy(state->centroids + state->clusters[pt_ID] * state->dim, new_cent1, state->dim * sizeof(*state->centroids));
+      scale_cent = ( (double) state->cluster_sizes[ state->clusters[pt_ID] ] ) / ( state->cluster_sizes[ state->clusters[pt_ID] ] - 1 );
+      scale_pt = ( (double) -1 ) / ( state->cluster_sizes[ state->clusters[pt_ID] ] - 1 );
+
+      kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, scale_cent,
+          state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, scale_pt, new_cent1);
+
       state->cluster_sizes[ state->clusters[pt_ID] ]--;
       kc_centroid_norm(state, state->clusters[pt_ID]);
     }
@@ -454,11 +453,10 @@ void kc_update_i2(
   new_cent1 = malloc( state->dim * sizeof(*new_cent1) );
 
   if (state->clusters[pt_ID] != -1) {           /* Only calculate change if point is leaving a valid cluster */
-    kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, 1,
-        state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, -1, new_cent1);
+    double dot_prod = kc_dot_prod_den_sp( state->centroids + state->clusters[pt_ID]*state->dim, state->data->row_ind + state->data->row_ptr[pt_ID],
+        state->data->val + state->data->row_ptr[pt_ID], sparse_size);
 
-    change_obj = sqrt( kc_dot_prod( new_cent1, new_cent1, state->dim ) ) -
-      sqrt( kc_dot_prod( state->centroids + (state->clusters[pt_ID] * state->dim), state->centroids + (state->clusters[pt_ID] * state->dim), state->dim ) );
+    change_obj = sqrt( state->centroid_norms[ state->clusters[pt_ID] ] - 2 * dot_prod + state->data_norms[pt_ID]) - sqrt(state->centroid_norms[ state->clusters[pt_ID] ]);
   }
   else {
     change_obj = 0;
@@ -483,7 +481,9 @@ void kc_update_i2(
   /* Update values */
   if (curr_best_cluster != state->clusters[pt_ID]) {
     if ( state->clusters[pt_ID] != -1) {           /* Only remove point from old cluster if previously assigned to a cluster */
-      memcpy(state->centroids + state->clusters[pt_ID] * state->dim, new_cent1, state->dim * sizeof(*state->centroids));
+      //memcpy(state->centroids + state->clusters[pt_ID] * state->dim, new_cent1, state->dim * sizeof(*state->centroids));
+    kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, 1,
+        state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, -1, new_cent1);
       state->cluster_sizes[ state->clusters[pt_ID] ]--;
       kc_centroid_norm(state, state->clusters[pt_ID]);
     }
@@ -513,19 +513,17 @@ void kc_update_e1(
   /* Calculate change in E1 from moving pt out of current cluster */
   int sparse_size = state->data->row_ptr[pt_ID+1] - state->data->row_ptr[pt_ID];       /* size of sparse vector of data point */
 
-  double norm, change_obj;
+  double change_obj;
   double * new_cent1;
 
   new_cent1 = malloc( state->dim * sizeof(*new_cent1) );
 
   if (state->clusters[pt_ID] != -1) {   /* Only calculate change if point is leaving a valid cluster */
-    kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, 1,
-        state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, -1, new_cent1);
+    double dot_prod = kc_dot_prod_den_sp( state->centroids + state->clusters[pt_ID]*state->dim, state->data->row_ind + state->data->row_ptr[pt_ID],
+        state->data->val + state->data->row_ptr[pt_ID], sparse_size );
 
-    norm = sqrt( kc_dot_prod( state->centroids + (state->clusters[pt_ID] * state->dim), state->centroids + (state->clusters[pt_ID] * state->dim), state->dim) );
-
-    change_obj = (state->cluster_sizes[ state->clusters[pt_ID] ] - 1) * kc_dot_prod( new_cent1, state->global_centroid, state->dim ) / ( sqrt( kc_dot_prod( new_cent1, new_cent1, state->dim ) ) ) -
-      state->cluster_sizes[ state->clusters[pt_ID] ] * kc_dot_prod( state->centroids + (state->clusters[pt_ID] * state->dim), state->global_centroid, state->dim ) / norm;
+    change_obj = (state->cluster_sizes[ state->clusters[pt_ID] ]-1) * (state->centroid_gc_dot[ state->clusters[pt_ID] ] - state->data_gc_dot[pt_ID]) / sqrt( state->centroid_norms[ state->clusters[pt_ID] ] - 2 * dot_prod + state->data_norms[pt_ID] )
+      - state->cluster_sizes[ state->clusters[pt_ID] ] * state->centroid_gc_dot[ state->clusters[pt_ID] ] / sqrt( state->centroid_norms[ state->clusters[pt_ID] ] );
   }
   else {
     change_obj = 0;
@@ -551,7 +549,8 @@ void kc_update_e1(
   /* Update values */
   if (curr_best_cluster != state->clusters[pt_ID]) {
     if (state->clusters[pt_ID] != -1) {                /* Only remove from old cluster if previously assigned to a cluster */
-      memcpy(state->centroids + state->clusters[pt_ID] * state->dim, new_cent1, state->dim * sizeof(*state->centroids));
+      kc_vec_add_den_sp( state->centroids + (state->clusters[pt_ID] * state->dim), state->dim, 1,
+          state->data->row_ind + state->data->row_ptr[pt_ID], state->data->val + state->data->row_ptr[pt_ID], sparse_size, -1, new_cent1);
       state->cluster_sizes[ state->clusters[pt_ID] ]--;
       kc_centroid_norm(state, state->clusters[pt_ID]);
       kc_centroid_gc_dot(state, state->clusters[pt_ID]);
@@ -935,11 +934,11 @@ void kc_single_clustering(
     }
     state->iter++;
 
-    //printf( "Objective: %0.04f\n", (*state->obj_func)(state) );
+    printf( "Objective: %0.04f\n", (*state->obj_func)(state) );
 
   } while ((state->updates >= 0.1 * state->data->num_rows) & (state->iter < 30));
 
-  //printf("Iterations: %d\n", state->iter);
+  printf("Iterations: %d\n", state->iter);
 
 }
 
@@ -979,6 +978,27 @@ void kc_kcluster(
     }
 
     //printf("Trial %d: Objective function: %0.04f\n", i, obj);
+  }
+}
+
+/* @brief Fill confusion matrix from clustering
+ *
+ * @param state State structure for clustering
+ * @param labels Array of true labels
+ * @param num_labels Number of unique labels
+ * @param conf_mat Pointer to confusion matrix
+ */
+void kc_fill_conf_mat(
+    kc_state * state,
+    int * labels,
+    int num_labels,
+    int * conf_mat)
+{
+  /* Fill confusion matrix
+   * rows = clusters
+   * columns = true labels */
+  for (int i=0; i<state->data->num_rows; i++) {
+    conf_mat[ labels[i] + state->opt_clusters[i] * num_labels ]++;
   }
 }
 
@@ -1240,16 +1260,63 @@ void kc_write_clusters_file(
   fclose(fout);
 }
 
+/*
+ * @brief Write confusion matrix to file
+ *
+ * @param fname Name of file to write to
+ * @param mat Matrix to write to file
+ * @param num_rows Number of rows
+ * @param num_cols Number of columns
+ * @param prepend_row_num Flag to set if row numbers need to be printed at beginning of row
+ */
+void kc_write_mat_to_file(
+    char * fname,
+    int * mat,
+    int num_rows,
+    int num_cols,
+    int prepend_row_num)
+{
+  FILE * fout = fopen(fname, "w");
+
+  for (int i=0; i<num_rows; i++) {
+    if (prepend_row_num) {
+      fprintf(fout, "%d ", i);
+    }
+    for (int j=0; j<num_cols; j++) {
+      fprintf(fout, "%d", mat[i*num_cols + j]);
+      if (j < num_cols-1) {
+        fprintf(fout, " ");
+      }
+    }
+    if (i < num_rows-1) {
+      fprintf(fout, "\n");
+    }
+  }
+
+  fclose(fout);
+}
+
 int main(
     int argc,
     char **argv)
 {
+  omp_set_num_threads( omp_get_max_threads() );
   char * ifname = argv[1];
   char * crit_func = argv[2];
   char * class_fname = argv[3];
   int num_clusters = atoi(argv[4]);
   int num_trials = atoi(argv[5]);
   char * ofname = argv[6];
+
+  char * mat_file_name;
+
+  if (argc > 7) {
+    mat_file_name = argv[7];
+  }
+  else {
+    mat_file_name = malloc(13 * sizeof(*mat_file_name));
+    strcpy(mat_file_name, "conf_mat.mat");
+  }
 
   kc_capitalize(crit_func, strlen(crit_func));
 
@@ -1293,6 +1360,11 @@ int main(
   total_time += monotonic_seconds() - start;
 
   kc_output_results( state, class, class_str->num_rows );
+
+  int * conf_mat = calloc(state->num_clusters * class_str->num_rows, sizeof(*conf_mat));
+  kc_fill_conf_mat(state, class, class_str->num_rows, conf_mat);
+
+  kc_write_mat_to_file( mat_file_name, conf_mat, state->num_clusters, class_str->num_rows, 1 );
 
   kc_write_clusters_file( ofname, state->clusters, article_IDs, state->data->num_rows );
 

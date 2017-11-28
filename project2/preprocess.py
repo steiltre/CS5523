@@ -238,5 +238,5 @@ def write_article_class(topic, article_ID, file):
     return
 
 if __name__ == '__main__':
-    preprocess("./reuters21578", "./stoplist.txt")
+    preprocess("./reuters21578", "./reuters21578/stoplist.txt")
 
