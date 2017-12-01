@@ -1301,6 +1301,7 @@ int main(
     char **argv)
 {
   omp_set_num_threads( omp_get_max_threads() );
+
   char * ifname = argv[1];
   char * crit_func = argv[2];
   char * class_fname = argv[3];
