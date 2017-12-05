@@ -30,6 +30,9 @@ project2/*.csv
 project2/*.class
 project2/*.clabel
 
+project3/knn
+project3/data/
+
 
 # Ignore solutions from gk
 project1/gk_sol
