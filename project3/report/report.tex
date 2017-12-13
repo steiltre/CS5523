@@ -1,0 +1,107 @@
+%        File: report.tex
+%     Created: Tue Dec 12 07:00 PM 2017 C
+% Last Change: Tue Dec 12 07:00 PM 2017 C
+%
+
+\documentclass[11pt]{article}
+
+\title{K-Nearest Neighbors and Ridge Regression Classifiers }
+\date{\today}
+\author{Trevor Steil}
+
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage[margin=1.0in]{geometry}
+\usepackage{esint}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{bbm}
+\usepackage{xcolor}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem*{claim}{Claim}
+%\newtheorem*{problem}{Problem}
+%\newtheorem*{lemma}{Lemma}
+\newtheorem{definition}{Definition}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\supp}[1]{\mathop{\mathrm{supp}}\left(#1\right)}
+\newcommand{\lip}[1]{\mathop{\mathrm{Lip}}\left(#1\right)}
+\newcommand{\curl}{\mathrm{curl}}
+\newcommand{\la}{\left \langle}
+\newcommand{\ra}{\right \rangle}
+\renewcommand{\vec}[1]{\mathbf{#1}}
+\renewcommand{\div}{\mathrm{div}}
+
+\newenvironment{problem}{\textbf{Problem.}}
+
+\newenvironment{solution}[1][]{\emph{Solution #1}}
+
+\algnewcommand{\Or}{\textbf{ or }}
+\algnewcommand{\And}{\textbf{ or }}
+
+% Indent paragraphs and remove spacing between paragraphs in itemize and enumerate environments
+\setlist{ listparindent=\parindent, parsep=0pt,}
+
+
+\begin{document}
+\maketitle
+
+\section{KNN Implementation}
+The KNN classifier begins by deciding the appropriate number of neighbors, $k$, to use. For each item in the validation set, this requires finding the
+$k$ nearest neighbors from the training set for multiple values of $k$. For this project, $k$ was set to range from 1 to 20.
+
+A simple observation that speeds up the validation process is to recognize that if $k_1 < k_2$, all $k_1$-nearest neighbors will be among the
+$k_2$-nearest neighbors. This means, for our particular case, we can find the 20 nearest neighbors for each point in the validation set and keep these
+neighbors in order sorted by proximity. Then to predict using the $k$-nearest neighbors, we read the first $k$ neighbors associated to any given
+point. This means we can scan our training and validation sets to find nearest neighbors, a $O(n^2)$ operation (for both sets of size $n$), a single
+time rather than $k$ times.
+
+While finding the above nearest neighbors, the current nearest neighbors for a validation item are stored in a linear array. When a new nearest
+neighbor is found, it is inserted into the array in the same fashion as an insertion sort. The worst-case running time for finding the $k$ nearest
+neighbors for a single item is $O(k*n)$, the worst case occurring when the test set is sorted from furthest neighbor to nearest neighbor. By using a
+heap instead, this time could be reduced to $O(n \log k)$. Given the maximum value of 20 for $k$ in these experiments, this improvement was not deemed
+necessary.
+
+Given an item and its nearest labeled neighbors, a label was predicted by performing a simple vote from the nearest neighbors. In the event of two
+labels having an equal number of votes, the tie was broken randomly. Other methods involving weighting by the actual distances were considered but
+were not investigated further seeing the reasonable performance this simple method gave.
+
+\section{Ridge Regression}
+For ridge regression, we are working with the update formula for weights:
+\begin{equation*}
+  w_i^{new} = \frac{\mathbf{X}_i^T (y - \mathbf{X}_{-i} w_{-i} )}{\mathbf{X}_i^T \mathbf{X}_i + \lambda}
+\end{equation*}
+where $\mathbf{X}$ is the data matrix, $w$ is the vector of weights, $y$ is the vector of class labels, $\mathbf{X}_i$ is the $i$-th column of $\mathbf{X}$, $\mathbf{X}_{-i}$ is
+$\mathbf{X}$ with the $i$-th column removed, $w_{-i}$ is $w$ with the $i$-th element removed, and $\lambda$ is the regularization parameter.
+
+We can rewrite this update as
+\begin{align*}
+  w_i^{new} &= \frac{\mathbf{X}_i^T (y - \mathbf{X} w + \mathbf{X}_i w_i) }{\mathbf{X}_i^T \mathbf{X}_i + \lambda} \\
+  &= \frac{\mathbf{X}_i^T y - \mathbf{X}_i^T \mathbf{X} w + \mathbf{X}_i^T \mathbf{X}_i w_i}{\mathbf{X}_i^T \mathbf{X}_i + \lambda}
+\end{align*}
+
+In this last form, $\mathbf{X}$ and $y$ are not changing, so we can precompute $\mathbf{X}^T y$ and read $\mathbf{X}_i^T y$ from the resulting vector.
+We can also precompute $\mathbf{X}^T \mathbf{X}$. Then $\mathbf{X}_i^T \mathbf{X}$ is the $i$-th row of $\mathbf{X}^T \mathbf{X}$, which we must then
+take the dot product with $w$. The remaining pieces require $\mathbf{X}_i^T \mathbf{X}_i$ which is an entry in the precomputed $\mathbf{X}^T
+\mathbf{X}$. This means the only piece of the update that needs to be computed at each step is $\mathbf{X}_i^T \mathbf{X} w$ which requires a single
+dot product.
+
+Let the data matrix $\mathbf{X}$ contain $n$ samples with $d$ dimensions. Then precomputing $\mathbf{X}^T y$ is a $O(n d)$ operation, and precomputing
+$\mathbf{X}^T \mathbf{X}$ is a $O(n d^2)$ operation. In each update step, we then only have a single dot product that requires $O(d)$ time to compute.
+Because $w$ is a $d$-dimensional vector, a single pass of updating all coordinates of $w$ takes $O(d^2)$ time. This time is relatively small,
+especially after dimensionality reduction. The largest part of the computation is the precomputing step.
+\end{document}
+
+

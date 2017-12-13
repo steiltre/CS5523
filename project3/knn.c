@@ -1,10 +1,17 @@
 
+/* Gives us high resolution timers. */
+#define _POSIX_C_SOURCE 200809L
+#include <time.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
 #define MAX_K 20
+
+double validation_time = 0;
+double classification_time = 0;
 
 /*******************************************************************
  *
@@ -109,7 +116,21 @@ int greater_than(
     const void * a,
     const void * b)
 {
-  return ( *(double*) a> *(double*) b);
+  return ( *(double*) a > *(double*) b);
+}
+
+int less_than_int(
+    const void * a,
+    const void *b)
+{
+  return ( *(int*) a < *(int*) b);
+}
+
+int greater_than_int(
+    const void * a,
+    const void * b)
+{
+  return ( *(int*) a > *(int*) b);
 }
 
 /******************************************************************
@@ -117,6 +138,20 @@ int greater_than(
  * Code
  *
  *****************************************************************/
+
+/**
+ * * @brief Return the number of seconds since an unspecified time (e.g., Unix
+ * *        epoch). This is accomplished with a high-resolution monotonic timer,
+ * *        suitable for performance timing.
+ * *
+ * * @return The number of seconds.
+ * */
+static inline double monotonic_seconds()
+{
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ts.tv_sec + ts.tv_nsec * 1e-9;
+}
 
 /*
  * @brief Allocate space for matrix
@@ -126,6 +161,7 @@ int greater_than(
  *
  * @return Allocated matrix
  */
+
 knn_lbl_mat * knn_mat_alloc(
     int nrows,
     int ncols)
@@ -197,11 +233,11 @@ void knn_pred(
     int nrows,
     int * pred)
 {
+  int * lbls = malloc(k * sizeof(*lbls) );
   for (int i=0; i<nrows; i++) {
     /* Copy labels into array and sort */
-    int * lbls = malloc(k * sizeof(*lbls) );
     memcpy(lbls, nn_lbl + max_k*i, k * sizeof(*lbls));
-    qsort(lbls, k, sizeof(*lbls), greater_than);
+    qsort(lbls, k, sizeof(*lbls), greater_than_int);
 
     /* Find most frequent label among nearest neighbors */
     int freq_lbl = lbls[0];
@@ -230,6 +266,7 @@ void knn_pred(
     }
     pred[i] = freq_lbl;
   }
+  free(lbls);
 }
 
 /*
@@ -257,14 +294,17 @@ void knn_find_nn(
       double dist = (*dist_func)(train_mat->ncols, test_mat->val+i*test_mat->ncols, train_mat->val+j*train_mat->ncols);
 
       int l=0;
-      while ( (comp_op(&dist, &nn_dist[(i+1)*k-l-1]) || (nn_dist[(i+1)*k-l-1] < 0) ) && l<k) {    /* Current point is closer than previous close point, or no previous close point */
+      while ( (comp_op(&dist, &nn_dist[(i+1)*k-l-1]) || (nn_dist[(i+1)*k-l-1] < 0) )) {    /* Current point is closer than previous close point, or no previous close point */
         l++;
+        if (l==k) {   /* Avoid looking at distances for wrong point */
+          break;
+        }
       }
 
       if (l>0) {   /* Current point replaces a previous close point */
         /* Shift distances and labels down */
-        memcpy( nn_dist + ( (i+1)*k-l+1 ), nn_dist + ( (i+1)*k-l ), (l-1)*sizeof(*nn_dist) );
-        memcpy( nn_lbl + ( (i+1)*k-l+1 ), nn_lbl + ( (i+1)*k-l ), (l-1)*sizeof(*nn_lbl) );
+        memmove( nn_dist + ( (i+1)*k-l+1 ), nn_dist + ( (i+1)*k-l ), (l-1)*sizeof(*nn_dist) );
+        memmove( nn_lbl + ( (i+1)*k-l+1 ), nn_lbl + ( (i+1)*k-l ), (l-1)*sizeof(*nn_lbl) );
 
         nn_dist[ (i+1)*k-l ] = dist;
         nn_lbl[ (i+1)*k-l ] = train_mat->lbl[j];
@@ -308,13 +348,15 @@ int knn_num_neighbors_validate(
     knn_pred(nn_dist, nn_lbl, max_k, k, valid_mat->nrows, pred);
     double acc = knn_accuracy(valid_mat->lbl, pred, valid_mat->nrows);
 
-    printf( "k: %d Accuracy: %0.04f\n", k, acc );
-
     if (acc > optimal_acc) {
       optimal_k = k;
       optimal_acc = acc;
     }
   }
+
+  free(nn_dist);
+  free(nn_lbl);
+  free(pred);
 
   return optimal_k;
 
@@ -340,7 +382,9 @@ int * knn_classification(
     double (*dist_func)(int, double *, double *),
     int (*comp_op)(const void *, const void *))
 {
+  double start = monotonic_seconds();
   int k = knn_num_neighbors_validate(train_mat, valid_mat, max_k, dist_func, comp_op);
+  validation_time += monotonic_seconds() - start;
 
   int * pred = malloc(test_mat->nrows*sizeof(*pred));
 
@@ -355,13 +399,22 @@ int * knn_classification(
   double * nn_dist = malloc( test_mat->nrows*k*sizeof(*nn_dist) );
   int * nn_lbl = malloc( test_mat->nrows*k*sizeof(*nn_lbl) );
 
+  for (int i=0; i<test_mat->nrows * k; i++) {
+    nn_dist[i] = -1;
+  }
+  start = monotonic_seconds();
   knn_find_nn(train_valid_mat, test_mat, k, dist_func, comp_op, nn_dist, nn_lbl);
 
   knn_pred(nn_dist, nn_lbl, k, k, test_mat->nrows, pred);
+  classification_time += monotonic_seconds()-start;
 
   double acc = knn_accuracy(test_mat->lbl, pred, test_mat->nrows);
 
   printf("ACCURACY: %0.04f\n", acc);
+
+  free(nn_dist);
+  free(nn_lbl);
+  knn_mat_free(train_valid_mat);
   return pred;
 }
 
@@ -426,7 +479,29 @@ knn_lbl_mat * knn_read_file(
       read = getline(&line, &len, fin);
     }
 
+    free(line);
+
     return mat;
+}
+
+/*
+ * @brief Write predictions to file
+ *
+ * @param ofname Name of output file to write
+ * @param pred Classification predictions
+ * @param nrows Number of predictions
+ */
+void knn_write_output(
+    char * ofname,
+    int * pred,
+    int nrows)
+{
+  FILE * fout = fopen(ofname, "w");
+
+  for (int i=0; i<nrows; i++) {
+    fprintf(fout, "%d\n", pred[i]);
+  }
+  fclose(fout);
 }
 
 int main(
@@ -448,7 +523,20 @@ int main(
   int (*comp_op)(const void *, const void *);
 
   dist_func = jaccard_sim;
+  //dist_func = cosine_sim;
   comp_op = greater_than;
 
-  knn_classification( train_mat, valid_mat, test_mat, MAX_K, dist_func, comp_op );
+  //dist_func = Euclidean_dist;
+  //comp_op = less_than;
+
+  int * pred = knn_classification( train_mat, valid_mat, test_mat, MAX_K, dist_func, comp_op );
+
+  printf("Validation time: %0.04f\nClassification Time: %0.04f\n", validation_time, classification_time);
+
+  knn_write_output(out_fname, pred, test_mat->nrows);
+
+  free(pred);
+  knn_mat_free(train_mat);
+  knn_mat_free(valid_mat);
+  knn_mat_free(test_mat);
 }
