@@ -2,9 +2,9 @@
 
 import subprocess
 
-trainfnames = ["./data/rep1/mnist_train.csv", "./data/rep2/mnist_train.csv", "./data/rep3/mnist_train.csv"]
-validfnames = ["./data/rep1/mnist_validation.csv", "./data/rep2/mnist_validation.csv", "./data/rep3/mnist_validation.csv"]
-testfnames = ["./data/rep1/mnist_test.csv", "./data/rep2/mnist_test.csv", "./data/rep3/mnist_test.csv"]
+trainfnames = ["/project/f17c5523/project_3/rep1/mnist_train.csv", "/project/f17c5523/project_3/rep2/mnist_train.csv", "/project/f17c5523/project_3/rep3/mnist_train.csv"]
+validfnames = ["/project/f17c5523/project_3/rep1/mnist_validation.csv", "/project/f17c5523/project_3/rep2/mnist_validation.csv", "/project/f17c5523/project_3/rep3/mnist_validation.csv"]
+testfnames = ["/project/f17c5523/project_3/rep1/mnist_test.csv", "/project/f17c5523/project_3/rep2/mnist_test.csv", "/project/f17c5523/project_3/rep3/mnist_test.csv"]
 
 outfname = "output.txt"
 wgtfname = "weights.csv"
@@ -44,7 +44,7 @@ for i in range(0,len(trainfnames)):
     reg_val.append(val)
     reg_cls.append(cls)
 
-proc = subprocess.Popen(["./nn_regression", trainfnames[i], validfnames[i], testfnames[i], outfname, wgtfname], stdout=subprocess.PIPE)
+proc = subprocess.Popen(["./nn_regression", trainfnames[0], validfnames[0], testfnames[0], outfname, wgtfname], stdout=subprocess.PIPE)
 output = proc.stdout.readlines()
 
 acc = output[0].split(":")[1].strip()
